@@ -46,6 +46,10 @@ jobs:
           context: .
           file: kaiwu-system-service/Dockerfile
           push: true
+          # 境外 runner 直连 Maven Central，不走仓库内的阿里云镜像配置。
+          build-args: |
+            MAVEN_ARGS=
+            MAVEN_ARGS_SYSTEM=
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64

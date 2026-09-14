@@ -10,12 +10,17 @@ FROM ${BUILDER_IMAGE} AS builder
 WORKDIR /workspace/starter
 COPY kaiwu-system-starter/ .
 COPY kaiwu-system-service/.mvn/settings.xml /tmp/kaiwu-maven-settings.xml
-RUN mvn -q -s /tmp/kaiwu-maven-settings.xml \
+# Maven 参数走 ARG：仓库内的 .mvn/settings.xml 把 central 指向阿里云镜像，那是给
+# 境内开发机与内网 CI 用的。GitHub Actions 的 runner 在境外，经该镜像会解析失败，
+# 构建时用 --build-arg MAVEN_ARGS= 直连 Central。默认值保持原行为不变。
+ARG MAVEN_ARGS="-s /tmp/kaiwu-maven-settings.xml"
+RUN mvn -q ${MAVEN_ARGS} \
     -Dmaven.resolver.transport=wagon -DskipTests install
 
 WORKDIR /workspace/system
 COPY kaiwu-system-service/ .
-RUN mvn -q -s .mvn/settings.xml -Dmaven.resolver.transport=wagon -DskipTests package
+ARG MAVEN_ARGS_SYSTEM="-s .mvn/settings.xml"
+RUN mvn -q ${MAVEN_ARGS_SYSTEM} -Dmaven.resolver.transport=wagon -DskipTests package
 
 FROM ${RUNTIME_IMAGE}
 WORKDIR /app
