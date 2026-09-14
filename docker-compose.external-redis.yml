@@ -1,0 +1,17 @@
+# 接外部 Redis：不创建内置 redis，应用连 KAIWU_REDIS_* 给出的地址。
+#
+#   export KAIWU_REDIS_HOST=redis.internal KAIWU_REDIS_PASSWORD='...'
+#   docker compose -f docker-compose.yml -f docker-compose.external-redis.yml up -d
+#
+# 可与 docker-compose.external-db.yml 叠加，也可单独使用。
+services:
+  redis:
+    profiles: ["bundled-redis"]
+
+  # system-service 原本同时依赖 db-migrate 与内置 redis。这里要保留前者、去掉后者，
+  # 所以必须用 !override（整体替换）而不是 !reset（清空，且忽略后面的内容）——
+  # 用错会让应用在建表完成前就启动。
+  system-service:
+    depends_on: !override
+      db-migrate:
+        condition: service_completed_successfully

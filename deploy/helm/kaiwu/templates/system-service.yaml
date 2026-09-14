@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kaiwu.fullname" . }}-system
+  labels:
+    {{- include "kaiwu.labels" . | nindent 4 }}
+    app.kubernetes.io/component: system
+spec:
+  selector:
+    {{- include "kaiwu.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: system
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

@@ -1,0 +1,238 @@
+nameOverride: ""
+fullnameOverride: ""
+
+imagePullSecrets: []
+
+images:
+  system:
+    repository: ghcr.io/kaiwuzaidao/kaiwu-system-service
+    tag: latest
+    digest: ""
+    pullPolicy: IfNotPresent
+  gateway:
+    repository: ghcr.io/kaiwuzaidao/kaiwu-gateway-service
+    tag: latest
+    digest: ""
+    pullPolicy: IfNotPresent
+  web:
+    repository: ghcr.io/kaiwuzaidao/kaiwu-system-web
+    tag: latest
+    digest: ""
+    pullPolicy: IfNotPresent
+  flyway:
+    repository: flyway/flyway
+    tag: 11-alpine
+    digest: ""
+    pullPolicy: IfNotPresent
+  mysql:
+    repository: mysql
+    tag: "8.4"
+    digest: ""
+    pullPolicy: IfNotPresent
+  redis:
+    repository: redis
+    tag: 7.4-alpine
+    digest: ""
+    pullPolicy: IfNotPresent
+
+runtimeSecret:
+  # 先运行 scripts/kaiwu-k8s-secret.sh 创建。生产环境应由 External Secrets 等系统管理。
+  existingSecret: kaiwu-runtime
+  keys:
+    mysqlRootPassword: mysql-root-password
+    databasePassword: database-password
+    redisPassword: redis-password
+    bootstrapAdminPassword: bootstrap-admin-password
+    configEncryptionKey: config-encryption-key
+    accessPrivateKey: access-private-key
+    accessPublicKey: access-public-key
+    contextPrivateKey: context-private-key
+    contextPublicKey: context-public-key
+    notificationDeliveryToken: notification-delivery-token
+    gatewayInternalToken: gateway-internal-token
+
+# 服务寻址（ADR 0024）。scheme 决定由谁解析地址，不绑定具体基础设施：
+#   http(s):// 交给底层网络，Kubernetes 下即 CoreDNS + Service；
+#   lb://      交给 Spring Cloud LoadBalancer，背后可以是 Nacos、Consul 等。
+# 默认走 http://：Kubernetes 的 Service 本身就是服务发现与负载均衡，
+# 在其上再叠一层应用层发现是更重的路径，不作为默认。
+serviceAddressing:
+  # 留空则使用集群内 Service DNS。要改走注册中心时填 lb://kaiwu-system-service，
+  # 此时必须同时把 discoveryEnabled 置为 true 并通过 extraEnv 提供连接配置，
+  # 否则 Gateway 会在装配出站客户端时直接启动失败。
+  systemServiceUri: ""
+  discoveryEnabled: false
+  # 启用 discovery 时同时注入给 System 与 Gateway 的额外环境变量，
+  # 例如 NACOS_SERVER_ADDR、NACOS_NAMESPACE。凭据类的值请用 valueFrom 引用自有 Secret，
+  # 不要在此写明文——本文件会进 Git。
+  extraEnv: []
+
+database:
+  # true 仅用于演示或单节点开发集群；生产环境必须使用受管 MySQL。
+  embedded: true
+  host: ""
+  port: 3306
+  name: kaiwu_platform
+  username: kaiwu
+  storageClass: ""
+  storageSize: 8Gi
+
+redis:
+  # true 仅用于演示或单节点开发集群；生产环境必须使用高可用 Redis。
+  embedded: true
+  host: ""
+  port: 6379
+  storageClass: ""
+  storageSize: 2Gi
+
+aiProvider:
+  # 允许访问的模型服务主机，逗号分隔，精确匹配不支持通配符。
+  # 留空则 AiProviderNetworkPolicy 拒绝一切 AI 调用（fail-closed）。
+  # 例：dashscope.aliyuncs.com,api.openai.com
+  allowedHosts: ""
+  # 已有受控出站代理时填这里，并把 egressProxy.enabled 置为 false。
+  # 留空且启用内置代理时，自动指向本 Chart 部署的 squid。
+  egressProxyUri: ""
+  egressProxy:
+    # 内置出站代理。squid.conf 原注释指出「正式环境的出站代理由运维侧提供」，
+    # 因此默认关闭；仅在没有现成受控代理时启用。
+    enabled: false
+    image:
+      repository: ubuntu/squid
+      tag: "6.6-24.04_edge"
+      pullPolicy: IfNotPresent
+    # 允许连接代理的客户端网段。各集群 Pod/Service CIDR 不同，
+    # 写死会导致要么拒绝合法请求、要么放得过宽。
+    clientCidrs:
+      - 10.0.0.0/8
+      - 172.16.0.0/12
+      - 192.168.0.0/16
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+
+migration:
+  enabled: true
+  connectRetries: 60
+
+system:
+  replicaCount: 1
+  accessTtlSeconds: 900
+  refreshTtlSeconds: 604800
+  artifactPersistence:
+    enabled: true
+    existingClaim: ""
+    storageClass: ""
+    size: 10Gi
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+
+gateway:
+  replicaCount: 1
+  # 只接受逐条审查后的 PROJECT 路由；不会从注册中心自动暴露服务。
+  # 本地或单仓部署可把生成仓库的 gateway-route-values.yaml 作为列表项追加。
+  managedRoutes: []
+  # GitOps 部署建议由 kaiwu-deploy/gateway-routes/<env> 创建该 ConfigMap。
+  # 与 managedRoutes 互斥；Chart 只挂载，不接管外部 ConfigMap 的内容和生命周期。
+  managedRoutesExistingConfigMap: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+web:
+  # 平台 nginx 站点配置。内容即整个平台的路由表，改这里等于改路由。
+  nginxTemplate: |
+    server {
+        listen 8080;
+        server_name _;
+
+        root /usr/share/nginx/html;
+        index index.html;
+
+        location /api/ {
+            proxy_pass http://${KAIWU_GATEWAY_UPSTREAM};
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # Reimburse 业务 API：按 KUBERNETES.md 5.3，/{projectCode}-api/ 必须经平台
+        # Gateway，不得绕过它直连业务服务（Gateway 负责项目入口授权，ADR 0022）。
+        location ^~ /reimburse-api/ {
+            proxy_pass http://${KAIWU_GATEWAY_UPSTREAM};
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # Reimburse sub-app: ^~ stops regex from stealing .js/.css requests
+        location ^~ /apps/reimburse/ {
+            proxy_pass http://kaiwu-reimburse-web/apps/reimburse/;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location ~* \.(js|css|woff2?|png|jpg|jpeg|gif|svg|ico)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+            try_files $uri =404;
+        }
+
+        location = /index.html {
+            add_header Cache-Control "no-store, must-revalidate";
+            expires -1;
+        }
+
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+    }
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    port: 80
+    # 仅在 type 为 NodePort 时生效；留空则由 Kubernetes 自动分配。
+    # 需要与集群内其他服务错开端口时才显式指定。
+    nodePort: ""
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: kaiwu.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

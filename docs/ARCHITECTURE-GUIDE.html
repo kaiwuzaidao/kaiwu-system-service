@@ -1,0 +1,1288 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="用 7 张图快速理解 Kaiwu 的产品定位、项目生成、AI Coding、运行鉴权与部署方式。">
+  <title>Kaiwu 架构图谱：从业务描述到独立项目</title>
+  <!--
+    这是 ARCHITECTURE-GUIDE.md 的可视化阅读版本。
+    架构事实仍以 ARCHITECTURE.md、REQUIREMENTS.md 与 ADR 为准；变更语义时请先修改 Markdown/ADR。
+
+    视觉基调：《天工开物》技术图谱本 —— 图版（版框 + 图版号 + 注）为主体，
+    宋体承担标题，石青只用于图版号、钤印、当前态与链接。
+  -->
+  <style>
+    :root {
+      color-scheme: light;
+
+      /* 字 */
+      --ink:        #23262b;
+      --ink-2:      #555c66;
+      --ink-3:      #858d99;
+
+      /* 纸 */
+      --paper:      #f5f8fb;
+      --paper-2:    #ebf0f6;
+      --surface:    #ffffff;
+      --plate:      #f8fafc;
+
+      /* 界 */
+      --frame:      #b9c1cc;
+      --rule:       #dbe0e7;
+      --rule-soft:  #e9edf2;
+
+      /* 石青 · 图版号、钤印、当前态、链接 */
+      --accent:      #2f72c4;
+      --accent-deep: #1f5299;
+      --accent-wash: #e9f0fa;
+      --on-accent:   #ffffff;
+
+      /* 青碧 · 结果 / 更适合 */
+      --teal:       #2f8a7b;
+      --teal-wash:  #e5f3f0;
+
+      /* 琥珀 · 提示 / 边界 */
+      --amber:      #a9701f;
+      --amber-wash: #fbf1e0;
+
+      /* 绛 · 仅用于"禁止 / 拒绝"语义 */
+      --red:        #c1483a;
+      --red-wash:   #fdecea;
+
+      /* 行内 code 保持中性，不与石青主色抢注意力 */
+      --code-fg:    #3b4654;
+      --code-bg:    #eef1f5;
+
+      --serif: "Songti SC", "Noto Serif SC", "Source Han Serif SC", "Source Han Serif CN",
+        "SimSun", "STSong", Georgia, "Times New Roman", serif;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, "PingFang SC",
+        "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, "Cascadia Mono", monospace;
+
+      --shell: 1160px;
+      --prose: 780px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        color-scheme: dark;
+        --ink:        #e8eaed;
+        --ink-2:      #a9b1bd;
+        --ink-3:      #7d8593;
+        --paper:      #14171b;
+        --paper-2:    #1b2027;
+        --surface:    #1f242b;
+        /* 图版始终印在浅色纸面上，暗色下才不会让 Mermaid 失去可读性 */
+        --plate:      #eceff3;
+        --frame:      #444d59;
+        --rule:       #2f353d;
+        --rule-soft:  #262c33;
+        --accent:      #5e9ee8;
+        --accent-deep: #8bbcf2;
+        --accent-wash: #17293e;
+        /* 提亮后的石青上必须用深字，白字对比不足 */
+        --on-accent:   #0d1a28;
+        --teal:       #56bda9;
+        --teal-wash:  #142a27;
+        --amber:      #d9a655;
+        --amber-wash: #2b2417;
+        --red:        #e3705f;
+        --red-wash:   #331c19;
+        --code-fg:    #b6c0cc;
+        --code-bg:    #262c34;
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 88px; -webkit-text-size-adjust: 100%; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--paper);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.78;
+    }
+
+    h1, h2, h3, p, blockquote, figure { margin-top: 0; }
+
+    .serif { font-family: var(--serif); }
+    .mono, code, .kicker, .plate-no, .seq-no {
+      font-family: var(--mono);
+      font-variant-ligatures: none;
+    }
+
+    a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+    a:hover { color: var(--code-fg); }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    :is(button, a):focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+      border-radius: 2px;
+    }
+
+    .shell { width: min(calc(100% - 44px), var(--shell)); margin-inline: auto; }
+    .prose { max-width: var(--prose); }
+
+    /* ── 顶栏：细线 + 石青进度 ─────────────────────────── */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: color-mix(in srgb, var(--paper) 88%, transparent);
+      backdrop-filter: saturate(140%) blur(14px);
+      border-bottom: 1px solid var(--rule);
+    }
+    .topbar-inner {
+      min-height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; }
+    .brand-seal {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      color: var(--accent);
+      border: 1.5px solid var(--accent);
+      border-radius: 2px;
+      font-family: var(--serif);
+      font-size: 17px;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .brand-name { font-family: var(--serif); font-size: 17px; font-weight: 700; letter-spacing: .02em; }
+    .brand-sub { color: var(--ink-3); font-size: 13px; }
+
+    .topnav { display: flex; align-items: center; gap: 4px; font-size: 13.5px; }
+    .topnav a {
+      position: relative;
+      padding: 6px 10px;
+      color: var(--ink-2);
+      text-decoration: none;
+      border-radius: 2px;
+    }
+    .topnav a::after {
+      content: "";
+      position: absolute;
+      left: 10px; right: 10px; bottom: 2px;
+      height: 1.5px;
+      background: var(--accent);
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform .22s ease;
+    }
+    .topnav a:hover { color: var(--ink); }
+    .topnav a:hover::after,
+    .topnav a[aria-current="true"]::after { transform: scaleX(1); }
+    .topnav a[aria-current="true"] { color: var(--ink); }
+    .topnav .source-link {
+      margin-left: 10px;
+      padding: 6px 12px;
+      border: 1px solid var(--rule);
+      color: var(--ink);
+      background: var(--surface);
+    }
+    .topnav .source-link::after { display: none; }
+    .topnav .source-link:hover { border-color: var(--ink-3); }
+
+    .progress {
+      position: absolute;
+      left: 0; bottom: -1px;
+      height: 2px;
+      width: 0;
+      background: var(--accent);
+    }
+
+    /* ── 扉页 ──────────────────────────────────────────── */
+    .hero { padding: 84px 0 20px; }
+    .hero-grid { display: grid; grid-template-columns: 1.25fr .75fr; gap: 60px; align-items: start; }
+
+    .kicker {
+      display: inline-block;
+      margin: 0 0 22px;
+      color: var(--ink-3);
+      font-size: 11.5px;
+      font-weight: 500;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin-bottom: 24px;
+      font-family: var(--serif);
+      font-size: clamp(38px, 5.6vw, 68px);
+      font-weight: 700;
+      line-height: 1.16;
+      letter-spacing: .005em;
+      text-wrap: balance;
+    }
+    h1 em {
+      font-style: normal;
+      color: var(--accent);
+      /* 着重号：中文排版里强调的正解 */
+      text-emphasis: dot var(--accent);
+      -webkit-text-emphasis: dot var(--accent);
+      text-emphasis-position: under right;
+      -webkit-text-emphasis-position: under right;
+    }
+    .lead { max-width: 640px; color: var(--ink-2); font-size: 17.5px; line-height: 1.85; }
+
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+    .button {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 44px;
+      padding: 0 20px;
+      border: 1px solid var(--rule);
+      border-radius: 2px;
+      color: var(--ink);
+      background: var(--surface);
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 600;
+      transition: border-color .18s ease, background .18s ease, color .18s ease;
+    }
+    .button:hover { border-color: var(--ink-3); color: var(--ink); }
+    .button.primary {
+      border-color: var(--accent);
+      color: var(--on-accent);
+      background: var(--accent);
+    }
+    .button.primary:hover { border-color: var(--accent-deep); background: var(--accent-deep); color: var(--on-accent); }
+    .hero-note { margin: 20px 0 0; color: var(--ink-3); font-size: 13px; }
+
+    /* 牌记 / colophon */
+    .colophon {
+      position: relative;
+      padding: 30px 28px 28px;
+      background: var(--surface);
+      border: 1px solid var(--frame);
+      box-shadow: 4px 4px 0 var(--rule-soft);
+    }
+    .colophon::before {
+      content: "";
+      position: absolute;
+      inset: 5px;
+      border: 1px solid var(--rule);
+      pointer-events: none;
+    }
+    .colophon-seal {
+      position: absolute;
+      top: -14px;
+      right: 22px;
+      display: grid;
+      place-items: center;
+      width: 54px;
+      height: 54px;
+      color: var(--on-accent);
+      background: var(--accent);
+      border-radius: 2px;
+      font-family: var(--serif);
+      font-size: 15px;
+      font-weight: 700;
+      /* 四字印章走传统的 2×2 田字格：vertical-rl 下自上而下、自右向左，
+         正好是「开物 / 载道」的读序。
+         line-height 取 1.25 是算出来的，不是凑的：每字占 15 × 1.25 = 18.75px，
+         两字 37.5px 塞得进 54px 的方框、三字 56.25px 塞不进，于是必定在第二字
+         之后换列。若沿用 1.15，三字只占 51.75px 仍能挤进去，就会折成
+         「开物载 / 道」。移动端 46px 方框配 13px 同理成立。 */
+      line-height: 1.25;
+      letter-spacing: .04em;
+      writing-mode: vertical-rl;
+      box-shadow: 0 2px 0 rgba(0,0,0,.14);
+    }
+    .colophon-kicker {
+      position: relative;
+      color: var(--ink-3);
+      font-size: 11px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+    }
+    .colophon blockquote {
+      position: relative;
+      margin: 16px 0 24px;
+      font-family: var(--serif);
+      font-size: 21px;
+      font-weight: 700;
+      line-height: 1.7;
+      letter-spacing: .01em;
+    }
+    .tenet { position: relative; display: grid; gap: 12px; }
+    .tenet div { display: grid; grid-template-columns: 22px 1fr; gap: 12px; align-items: baseline; }
+    .tenet i {
+      font-family: var(--serif);
+      font-style: normal;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--accent);
+      text-align: center;
+    }
+    .tenet span { color: var(--ink-2); font-size: 14.5px; line-height: 1.7; }
+    .tenet strong { color: var(--ink); }
+
+    /* ── 生命周期：目录式横排 ───────────────────────────── */
+    .lifecycle { padding: 64px 0 8px; }
+    .lifecycle-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border-top: 2px solid var(--frame); }
+    .lifecycle-item { padding: 20px 24px 24px 0; border-right: 1px solid var(--rule); }
+    .lifecycle-item:last-child { border-right: 0; }
+    .lifecycle-item:not(:first-child) { padding-left: 24px; }
+    .seq-no { display: block; color: var(--accent); font-size: 12px; letter-spacing: .1em; }
+    .lifecycle-item h3 {
+      margin: 10px 0 8px;
+      font-family: var(--serif);
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: .01em;
+    }
+    .lifecycle-item p { margin: 0; color: var(--ink-2); font-size: 14px; line-height: 1.72; }
+
+    /* ── 章 ───────────────────────────────────────────── */
+    main section { padding: 78px 0 82px; border-top: 1px solid var(--rule); }
+    main section:first-child { border-top: 0; }
+
+    .chapter-head { max-width: var(--prose); margin-bottom: 36px; }
+    .chapter-mark {
+      display: flex;
+      align-items: baseline;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    .chapter-juan {
+      font-family: var(--serif);
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: .12em;
+    }
+    .chapter-en { color: var(--ink-3); font-size: 11px; letter-spacing: .2em; text-transform: uppercase; }
+    h2 {
+      margin: 0 0 14px;
+      font-family: var(--serif);
+      font-size: clamp(27px, 3.6vw, 40px);
+      font-weight: 700;
+      line-height: 1.32;
+      letter-spacing: .01em;
+      text-wrap: balance;
+    }
+    .chapter-head > p { margin: 0; color: var(--ink-2); font-size: 16.5px; }
+
+    .callout {
+      margin: 26px 0 0;
+      padding: 18px 20px;
+      border: 1px solid var(--rule);
+      border-left: 3px solid var(--amber);
+      background: var(--amber-wash);
+      font-size: 15px;
+    }
+    .callout p { margin: 0; }
+
+    /* ── 图版 ─────────────────────────────────────────── */
+    /* 图版出血：图需要比正文更宽的版面，向两侧对称撑开，最多到 --plate-max */
+    .plate-fig {
+      --plate-w: min(calc(100vw - 44px), var(--plate-max, 1400px));
+      width: var(--plate-w);
+      margin: 34px calc(-.5 * max(0px, var(--plate-w) - 100%)) 0;
+      background: var(--surface);
+      border: 1px solid var(--frame);
+      box-shadow: 5px 5px 0 var(--rule-soft);
+    }
+    /* 时序图纵向本来就长，撑到最宽只会让整图更难通读 */
+    .plate-fig.tall { --plate-max: 1040px; }
+    .plate-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 20px 24px 18px;
+      border-bottom: 1px solid var(--frame);
+    }
+    .plate-title { display: flex; align-items: baseline; gap: 14px; min-width: 0; }
+    .plate-no {
+      flex: none;
+      padding: 3px 9px;
+      color: var(--on-accent);
+      background: var(--accent);
+      font-family: var(--serif);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .12em;
+      line-height: 1.5;
+    }
+    .plate-head h3 {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: 19px;
+      font-weight: 700;
+      letter-spacing: .01em;
+    }
+    .plate-tag {
+      flex: none;
+      color: var(--ink-3);
+      font-size: 12px;
+      letter-spacing: .06em;
+      white-space: nowrap;
+    }
+    /* 图版永远印在纸上：深色模式下也保持浅底，保证 Mermaid 可读 */
+    .plate-body {
+      overflow-x: auto;
+      padding: 26px 24px;
+      background: var(--plate);
+      border-bottom: 1px solid var(--rule);
+    }
+    .mermaid {
+      margin: 0;
+      text-align: center;
+      color: #4a4f4b;
+      font-family: var(--mono);
+      font-size: 13px;
+    }
+    .plate-note {
+      display: grid;
+      grid-template-columns: 30px 1fr;
+      gap: 12px;
+      margin: 0;
+      padding: 18px 24px 20px;
+      color: var(--ink-2);
+      font-size: 14.5px;
+      line-height: 1.75;
+    }
+    .plate-note::before {
+      content: "注";
+      font-family: var(--serif);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: .1em;
+    }
+    .plate-note strong { color: var(--ink); }
+
+    /* ── 痛点 / 回答 面板 ──────────────────────────────── */
+    .story-panel { padding: 26px; border: 1px solid var(--rule); background: var(--surface); }
+    .story-intro { display: flex; align-items: baseline; gap: 14px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--rule); }
+    .story-intro strong { flex: 0 0 auto; color: var(--accent); font-family: var(--serif); font-size: 16px; letter-spacing: .04em; }
+    .story-intro p { margin: 0; color: var(--ink-2); font-size: 14.5px; line-height: 1.7; }
+
+    /* align-items:start：三块内容高度不跟左侧痛点列表走，否则条目多时会被拉出大片留白 */
+    .story-grid { display: grid; grid-template-columns: minmax(200px, .72fr) minmax(0, 2fr); gap: 26px; align-items: start; }
+    .choices { display: grid; gap: 0; align-content: start; border-top: 1px solid var(--rule-soft); }
+    .choices button {
+      appearance: none;
+      position: relative;
+      padding: 12px 12px 12px 22px;
+      border: 0;
+      border-bottom: 1px solid var(--rule-soft);
+      color: var(--ink-2);
+      background: none;
+      font: inherit;
+      font-size: 14.5px;
+      text-align: left;
+      cursor: pointer;
+      transition: color .16s ease, background .16s ease;
+    }
+    .choices button::before {
+      content: "";
+      position: absolute;
+      left: 0; top: 50%;
+      width: 3px; height: 0;
+      background: var(--accent);
+      transform: translateY(-50%);
+      transition: height .2s ease;
+    }
+    .choices button:hover { color: var(--ink); background: var(--paper-2); }
+    .choices button[aria-pressed="true"] { color: var(--ink); font-weight: 600; }
+    .choices button[aria-pressed="true"]::before { height: 60%; }
+
+    /* 三列是一条推进线：问题（凹陷灰底）→ 回答（主色）→ 结果（青碧）。
+       靠底色、顶边和标签填充三重区分，光靠标签颜色读者分不出哪一列是痛点。 */
+    .story-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+    .story-step {
+      position: relative;
+      padding: 16px 18px 18px;
+      border: 1px solid var(--rule);
+      border-top-width: 3px;
+    }
+    .story-step.pain   { border-top-color: var(--red);    background: var(--paper-2); }
+    .story-step.answer { border-top-color: var(--accent); background: var(--surface); }
+    .story-step.result { border-top-color: var(--teal);   background: var(--teal-wash); }
+
+    /* 列间推进箭头 */
+    .story-step + .story-step::after {
+      content: "→";
+      position: absolute;
+      top: 24px;
+      left: -18px;
+      width: 14px;
+      color: var(--ink-3);
+      font-size: 14px;
+      line-height: 1;
+      text-align: center;
+    }
+
+    .step-label {
+      display: inline-block;
+      margin: 0 0 12px;
+      padding: 3px 10px;
+      border-radius: 2px;
+      font-family: var(--serif);
+      font-size: 12.5px;
+      font-weight: 700;
+      letter-spacing: .06em;
+    }
+    .story-step.pain   .step-label { color: var(--red);        background: var(--red-wash); }
+    .story-step.answer .step-label { color: var(--on-accent);  background: var(--accent); }
+    .story-step.result .step-label { color: var(--teal);       background: var(--surface); }
+    .story-step h3 {
+      margin: 0 0 10px;
+      text-wrap: balance;
+      font-family: var(--serif);
+      font-size: 17px;
+      font-weight: 700;
+      line-height: 1.5;
+    }
+    .story-step p:last-child { margin: 0; color: var(--ink-2); font-size: 14px; line-height: 1.75; }
+    .tradeoff {
+      margin: 26px 0 0;
+      padding-top: 18px;
+      border-top: 1px solid var(--rule-soft);
+      color: var(--ink-2);
+      font-size: 14.5px;
+    }
+    .tradeoff strong { color: var(--ink); }
+
+    /* ── 工程原则 ─────────────────────────────────────── */
+    .principles {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      margin-top: 34px;
+      background: var(--rule);
+      border: 1px solid var(--rule);
+    }
+    .principle { padding: 22px; background: var(--surface); }
+    .principle em {
+      display: block;
+      margin-bottom: 12px;
+      color: var(--ink-3);
+      font-family: var(--mono);
+      font-size: 10.5px;
+      font-style: normal;
+      letter-spacing: .18em;
+    }
+    .principle strong {
+      display: block;
+      margin-bottom: 8px;
+      font-family: var(--serif);
+      font-size: 16.5px;
+      letter-spacing: .01em;
+    }
+    .principle p { margin: 0; color: var(--ink-2); font-size: 14px; line-height: 1.75; }
+
+    /* ── 两栏信息 ─────────────────────────────────────── */
+    .two-column { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .info-card { padding: 24px; border: 1px solid var(--rule); background: var(--surface); }
+    .info-card h3 {
+      margin: 0 0 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--rule-soft);
+      font-family: var(--serif);
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: .01em;
+    }
+    .info-card ul { margin: 0; padding-left: 0; list-style: none; color: var(--ink-2); font-size: 14.5px; }
+    .info-card li { position: relative; padding-left: 18px; }
+    .info-card li::before {
+      content: "";
+      position: absolute;
+      left: 0; top: .78em;
+      width: 6px; height: 1px;
+      background: currentColor;
+      opacity: .55;
+    }
+    .info-card li + li { margin-top: 10px; }
+    .info-card.good { border-top: 3px solid var(--teal); }
+    .info-card.limit { border-top: 3px solid var(--amber); }
+
+    /* ── 表 ───────────────────────────────────────────── */
+    .table-wrap { overflow-x: auto; border: 1px solid var(--frame); background: var(--surface); }
+    table { width: 100%; border-collapse: collapse; min-width: 860px; }
+    th, td { padding: 14px 16px; border-bottom: 1px solid var(--rule-soft); text-align: left; vertical-align: top; font-size: 14.5px; }
+    th {
+      color: var(--ink);
+      background: var(--paper-2);
+      border-bottom: 1px solid var(--frame);
+      font-family: var(--serif);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: .04em;
+    }
+    tbody tr:last-child td { border-bottom: 0; }
+    tbody tr:hover td { background: var(--paper-2); }
+    td:first-child { color: var(--ink); font-weight: 600; }
+    td code { white-space: nowrap; }
+    code {
+      padding: .1em .38em;
+      color: var(--code-fg);
+      background: var(--code-bg);
+      border-radius: 2px;
+      font-family: var(--mono);
+      font-size: .88em;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 9px;
+      border-radius: 2px;
+      font-family: var(--mono);
+      font-size: 11.5px;
+      letter-spacing: .04em;
+      white-space: nowrap;
+    }
+    .badge.no { color: var(--teal); background: var(--teal-wash); }
+    .badge.optional { color: var(--amber); background: var(--amber-wash); }
+
+    /* ── 继续阅读 ─────────────────────────────────────── */
+    .reading-title {
+      margin: 44px 0 16px;
+      font-family: var(--serif);
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: .02em;
+    }
+    .reading-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+    .reading-card {
+      display: block;
+      padding: 20px;
+      color: var(--ink);
+      background: var(--surface);
+      text-decoration: none;
+      transition: background .18s ease;
+    }
+    .reading-card:hover { background: var(--paper-2); color: var(--ink); }
+    .reading-card strong {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 6px;
+      font-family: var(--serif);
+      font-size: 16px;
+      letter-spacing: .01em;
+    }
+    .reading-card strong::after { content: "→"; color: var(--accent); font-family: var(--sans); font-size: 14px; }
+    .reading-card span { color: var(--ink-2); font-size: 13.5px; }
+
+    footer { padding: 40px 0 60px; color: var(--ink-3); font-size: 13px; }
+    .footer-inner {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      padding-top: 22px;
+      border-top: 1px solid var(--rule);
+    }
+    .footer-inner span:first-child { font-family: var(--serif); letter-spacing: .04em; }
+
+    /* ── 入场：只给图版与面板，一次轻微上浮 ─────────────── */
+    .reveal { opacity: 0; transform: translateY(14px); transition: opacity .6s ease, transform .6s ease; }
+    .reveal.in { opacity: 1; transform: none; }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .reveal { opacity: 1; transform: none; transition: none; }
+      * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+
+    @media (max-width: 1000px) {
+      .hero-grid, .story-grid { grid-template-columns: 1fr; }
+      .hero { padding-top: 60px; }
+      .lifecycle-grid { grid-template-columns: 1fr 1fr; }
+      .lifecycle-item:nth-child(2) { border-right: 0; }
+      .lifecycle-item:nth-child(n+3) { border-top: 1px solid var(--rule); padding-top: 20px; }
+      .principles { grid-template-columns: 1fr 1fr; }
+      .topnav a:not(.source-link) { display: none; }
+    }
+    @media (max-width: 760px) {
+      .shell { width: min(calc(100% - 28px), var(--shell)); }
+      body { font-size: 15.5px; }
+      .lifecycle-grid, .principles, .two-column, .reading-grid { grid-template-columns: 1fr; }
+      .lifecycle-item { border-right: 0; padding-left: 0 !important; }
+      .lifecycle-item:not(:first-child) { border-top: 1px solid var(--rule); padding-top: 20px; }
+      .story-intro { flex-direction: column; align-items: flex-start; gap: 6px; }
+      .story-steps { grid-template-columns: 1fr; gap: 26px; }
+      /* 竖排时箭头转向下方，落在两块之间的间隙里 */
+      .story-step + .story-step::after {
+        content: "↓";
+        top: -21px;
+        left: 50%;
+        transform: translateX(-50%);
+      }
+      .plate-fig { --plate-max: 100%; width: auto; margin-inline: 0; }
+      .plate-body { padding: 16px 14px; }
+      .mermaid { min-width: 620px; }
+      .plate-head { flex-direction: column; gap: 8px; }
+      .colophon-seal { width: 46px; height: 46px; font-size: 13px; }
+      main section { padding: 58px 0 60px; }
+      .hero-actions .button { flex: 1 1 100%; justify-content: center; }
+    }
+    @media (max-width: 520px) {
+      .brand-sub { display: none; }
+      .footer-inner { flex-direction: column; gap: 8px; }
+    }
+
+    @media print {
+      .topbar, .hero-actions, .choices { display: none !important; }
+      body { background: #fff; background-image: none; color: #000; }
+      body::before { display: none; }
+      .reveal { opacity: 1 !important; transform: none !important; }
+      main section { break-inside: avoid; border-top: 1px solid #999; padding: 24px 0; }
+      .plate-fig, .story-panel, .colophon { box-shadow: none; break-inside: avoid; }
+      .story-grid { grid-template-columns: 1fr; }
+      .story-steps { grid-template-columns: repeat(3, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="shell topbar-inner">
+      <a class="brand" href="#top" aria-label="回到页面顶部">
+        <span class="brand-seal" aria-hidden="true">开</span>
+        <span><span class="brand-name">Kaiwu</span> <span class="brand-sub">架构图谱</span></span>
+      </a>
+      <nav class="topnav" aria-label="页面导航">
+        <a href="#positioning">定位</a>
+        <a href="#philosophy">工程哲学</a>
+        <a href="#generation">项目生成</a>
+        <a href="#runtime">运行鉴权</a>
+        <a href="#deployment">部署</a>
+        <a class="source-link" href="ARCHITECTURE-GUIDE.md">查看 Markdown</a>
+      </nav>
+    </div>
+    <div class="progress" id="progress" aria-hidden="true"></div>
+  </header>
+
+  <div id="top" class="hero">
+    <div class="shell hero-grid">
+      <div>
+        <p class="kicker">AI-ready project factory · governance control plane</p>
+        <h1>从业务描述，到<em>真正可接管</em>的独立项目</h1>
+        <p class="lead">Kaiwu 用统一治理和确定性工程，创建可独立交付、可由团队长期维护的业务项目。AI 可以辅助第一版业务建模，也可以完全不参与；项目生成后，团队继续使用熟悉的 AI Coding 工具或常规开发流程。</p>
+        <div class="hero-actions">
+          <a class="button primary" href="#positioning">开始看 7 张图</a>
+          <a class="button" href="QUICKSTART.md">直接开始使用</a>
+        </div>
+        <p class="hero-note">约 10 分钟读完 · 架构事实以 ARCHITECTURE.md、REQUIREMENTS.md 与 ADR 为准</p>
+      </div>
+      <aside class="colophon" aria-label="Kaiwu 工程哲学">
+        <span class="colophon-seal" aria-hidden="true">开物载道</span>
+        <span class="colophon-kicker">Kaiwu Philosophy</span>
+        <blockquote>平台克制，项目自治；<br>AI 辅助理解，模板确定交付；<br>生成只负责起点，代码长期属于团队。</blockquote>
+        <div class="tenet">
+          <div><i>一</i><span><strong>平台</strong>沉淀通用治理与统一入口</span></div>
+          <div><i>二</i><span><strong>模板</strong>交付可验证的标准工程</span></div>
+          <div><i>三</i><span><strong>团队</strong>长期拥有源码与发布节奏</span></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div class="lifecycle">
+    <div class="shell lifecycle-grid" aria-label="Kaiwu 生命周期摘要">
+      <div class="lifecycle-item"><span class="seq-no">01 治理</span><h3>项目先有上下文</h3><p>用户、成员、角色、菜单和权限从创建项目开始统一管理。</p></div>
+      <div class="lifecycle-item"><span class="seq-no">02 生成</span><h3>AI 可选，模板确定</h3><p>AI 蓝图或基础脚手架，最终都由同一套版本化模板渲染。</p></div>
+      <div class="lifecycle-item"><span class="seq-no">03 交付</span><h3>双仓、双边界</h3><p>独立前端、后端、数据库、CI，并接入项目自己的发布路径。</p></div>
+      <div class="lifecycle-item"><span class="seq-no">04 接管</span><h3>生成后平台退出</h3><p>团队自选开发工具，独立版本化、发布、扩容与回滚。</p></div>
+    </div>
+  </div>
+
+  <main>
+    <section id="positioning">
+      <div class="shell">
+        <div class="chapter-head">
+          <div class="chapter-mark"><span class="chapter-juan">卷一</span><span class="chapter-en">Product Positioning</span></div>
+          <h2>Kaiwu 是治理控制面，也是项目工厂</h2>
+          <p>平台长期负责治理事实、生成约束和统一入口；业务团队长期负责自己的代码、数据与发布。两者通过清晰契约连接，而不是共享一个越来越大的业务工程。</p>
+        </div>
+        <figure class="plate-fig reveal">
+          <figcaption class="plate-head">
+            <span class="plate-title"><span class="plate-no">图一</span><h3>从平台治理到独立业务项目</h3></span>
+            <span class="plate-tag">核心全景</span>
+          </figcaption>
+          <div class="plate-body">
+            <pre class="mermaid">
+flowchart LR
+    Demand["业务描述&lt;br/&gt;可选 MySQL DDL"]
+    subgraph Kaiwu["Kaiwu 平台 · 统一部署与治理"]
+        Governance["项目治理&lt;br/&gt;用户、项目、成员、角色、菜单、审计"]
+        Metadata["平台公共能力&lt;br/&gt;字典、配置、国际化"]
+        Factory["项目工厂&lt;br/&gt;AI 生成 / 基础脚手架"]
+        Blueprint["受校验的蓝图&lt;br/&gt;或基础脚手架规格"]
+        Templates["版本化模板&lt;br/&gt;确定性渲染"]
+        Guardrails["工程门禁&lt;br/&gt;权限、迁移、Secret、日志"]
+        Governance -- "项目上下文与权限" --> Factory
+        Metadata -- "统一工程契约" --> Templates
+        Factory --> Blueprint --> Templates
+        Guardrails --> Templates
+    end
+    subgraph Project["每个业务项目 · 独立交付"]
+        BizWeb["前端仓库"]
+        BizService["后端仓库"]
+        BizDB[("业务数据库")]
+        Delivery["CI / GitOps"]
+    end
+    Demand --> Factory
+    Templates == "一次生成" ==> BizWeb
+    Templates == "一次生成" ==> BizService
+    BizService --> BizDB
+    BizWeb --> Delivery
+    BizService --> Delivery
+    Developer["业务开发团队"] -- "生成后接管" --> BizWeb
+    Developer -- "生成后接管" --> BizService
+            </pre>
+          </div>
+          <p class="plate-note"><span><strong>关键边界：</strong>一个项目成功生成后不能再次生成；平台只允许向两个已验证为空的仓库分别执行一次初始推送，随后永久退出源码写入。</span></p>
+        </figure>
+      </div>
+    </section>
+
+    <section id="philosophy">
+      <div class="shell">
+        <div class="chapter-head">
+          <div class="chapter-mark"><span class="chapter-juan">卷二</span><span class="chapter-en">Why Kaiwu</span></div>
+          <h2>AI Coding 不缺速度，缺的是工程闭环</h2>
+          <p>页面和接口可以很快生成，真正困难的是让 AI 读到有效上下文、沿正确契约完成修改，并让结果通过安全与交付验证。Kaiwu 不替代 AI Coding 工具，而是把稳定的工程前提交给它。</p>
+        </div>
+
+        <div class="story-panel reveal" id="story">
+          <div class="story-intro"><strong>AI Coding 的工程断点</strong><p>选择一个问题，查看 Kaiwu 提供的工程机制，以及可以验证的结果。</p></div>
+          <div class="story-grid">
+            <div class="choices" aria-label="选择痛点"></div>
+            <div class="story-steps" aria-live="polite">
+              <article class="story-step pain"><p class="step-label">痛点</p><h3 data-field="painTitle"></h3><p data-field="painBody"></p></article>
+              <article class="story-step answer"><p class="step-label">Kaiwu 的回答</p><h3 data-field="answerTitle"></h3><p data-field="answerBody"></p></article>
+              <article class="story-step result"><p class="step-label">得到的结果</p><h3 data-field="resultTitle"></h3><p data-field="resultBody"></p></article>
+            </div>
+          </div>
+          <p class="tradeoff"><strong>边界说明：</strong>Kaiwu 不读取或沉淀 AI 聊天记录，也不替代需求澄清和代码评审；它提供的是随仓库版本化的工程上下文、确定性基线和可执行门禁。</p>
+        </div>
+
+        <div class="principles" aria-label="Kaiwu 工程原则">
+          <article class="principle"><em>PLATFORM</em><strong>平台克制，业务按需生长</strong><p>控制面聚焦通用治理、统一入口和项目工厂，业务只引入真正需要的能力。</p></article>
+          <article class="principle"><em>OWNERSHIP</em><strong>治理统一，业务物理独立</strong><p>项目独立拥有仓库、数据库、部署单元、CI 和发布周期。</p></article>
+          <article class="principle"><em>SOURCE OF TRUTH</em><strong>代码优先，仓库承载实现</strong><p>业务逻辑、评审和版本历史留在标准源码仓库，不依赖在线元数据运行。</p></article>
+          <article class="principle"><em>DETERMINISM</em><strong>AI 理解，模板交付</strong><p>AI 只产生受校验蓝图；Java、TypeScript、SQL、权限和 CI 由模板渲染。</p></article>
+          <article class="principle"><em>I18N</em><strong>显示可变，协议稳定</strong><p>中文、英文、动态菜单、字典和错误统一治理；翻译不改变权限码、状态码、ID 或 Context。</p></article>
+          <article class="principle"><em>QUALITY</em><strong>规范必须可以执行</strong><p>权限、迁移、分页、日志、安全与供应链规则进入本地检查和 CI。</p></article>
+          <article class="principle"><em>HANDOFF</em><strong>生成是交付，不是控制</strong><p>项目只生成一次，平台随后退出写入，长期所有权属于业务团队。</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="generation">
+      <div class="shell">
+        <div class="chapter-head">
+          <div class="chapter-mark"><span class="chapter-juan">卷三</span><span class="chapter-en">Project Factory</span></div>
+          <h2>AI 可以参与，但不是前置条件</h2>
+          <p><code>AI_PROJECT</code> 用于辅助形成第一版业务蓝图；<code>BASIC_SCAFFOLD</code> 完全不调用模型。两条路径最终进入同一套确定性模板和工程校验。</p>
+        </div>
+        <figure class="plate-fig reveal">
+          <figcaption class="plate-head">
+            <span class="plate-title"><span class="plate-no">图二</span><h3>AI 可选的项目生成流水线</h3></span>
+            <span class="plate-tag">从需求到团队接管</span>
+          </figcaption>
+          <div class="plate-body">
+            <pre class="mermaid">
+flowchart LR
+    Input["业务需求&lt;br/&gt;可选 DDL"] --> Mode{"选择生成方式"}
+    Mode -- "AI_PROJECT" --> AI["AI 生成蓝图"]
+    Mode -- "BASIC_SCAFFOLD" --> Basic["创建基础脚手架规格"]
+    AI --> Validate["服务端校验&lt;br/&gt;结构、标识符、DDL、边界"]
+    Validate --> Blueprint["ProjectBlueprint"]
+    Basic --> Render
+    Blueprint --> Render["确定性模板渲染"]
+    Render --> Verify["构建与约束校验"]
+    Verify --> Artifacts["后端 ZIP + 前端 ZIP"]
+    Artifacts --> Handoff["下载或一次初始推送&lt;br/&gt;交付独立仓库"]
+    Handoff --> Coding["团队自选 AI Coding 工具&lt;br/&gt;或常规开发流程"]
+    Coding --> ProjectCI["本地验证 + 项目 CI"]
+    ProjectCI --> Release["独立发布与回滚"]
+    AI -. "不能输出或执行" .-> Rejected["任意源码 / Shell&lt;br/&gt;权限 / 路由 / 网络指令"]
+    style AI fill:#fbf1e0,stroke:#a9701f,color:#7a5011
+    style Blueprint fill:#fbf1e0,stroke:#a9701f,color:#7a5011
+    style Render fill:#e9f0fa,stroke:#2f72c4,color:#1b4a8c
+    style Rejected fill:#fdecea,stroke:#c1483a,color:#8f2b21
+            </pre>
+          </div>
+          <p class="plate-note"><span>模型没有任意文件或命令执行权。失败任务只能由 owner 在原记录上重试；<code>SUCCESS</code> 后永久锁定，不提供重新生成或覆盖已有代码的入口。</span></p>
+        </figure>
+
+        <div class="two-column" style="margin-top:20px">
+          <article class="info-card good"><h3>随仓库一起交付</h3><ul><li><code>AGENTS.md</code>、<code>CLAUDE.md</code>、README 与仓库地图</li><li>Flyway 迁移、Dockerfile、构建命令和验证 CI</li><li>权限、字典、查询边界、敏感日志与供应链检查</li></ul></article>
+          <article class="info-card limit"><h3>这里所说的“仓库上下文”</h3><ul><li>只包含工程结构、命令、规则和协作入口</li><li>不会读取或沉淀 AI 聊天记录</li><li>不会自动把需求讨论和领域决策写入仓库；团队仍需用项目文档或 ADR 维护</li></ul></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="runtime">
+      <div class="shell">
+        <div class="chapter-head">
+          <div class="chapter-mark"><span class="chapter-juan">卷四</span><span class="chapter-en">Runtime &amp; Authorization</span></div>
+          <h2>平台事实统一，业务代码与数据独立</h2>
+          <p>运行时始终保持“Web → Gateway → System / 业务 Service”的主线。Gateway 管入口，System 管事实，Starter 和目标服务完成本地最终授权。</p>
+        </div>
+        <figure class="plate-fig reveal">
+          <figcaption class="plate-head">
+            <span class="plate-title"><span class="plate-no">图三</span><h3>平台与业务项目的运行时关系</h3></span>
+            <span class="plate-tag">核心请求拓扑</span>
+          </figcaption>
+          <div class="plate-body"><pre class="mermaid">
+flowchart LR
+    User(["浏览器"])
+    subgraph Platform["Kaiwu 平台"]
+        SystemWeb["管理前端&lt;br/&gt;kaiwu-system-web :8000"]
+        Gateway["统一入口&lt;br/&gt;kaiwu-gateway-service :8088"]
+        System["平台控制面&lt;br/&gt;kaiwu-system-service :8080&lt;br/&gt;内置 Starter"]
+        PlatformDB[("平台 MySQL")]
+        Redis[("Redis Session")]
+        Artifact[("生成制品")]
+    end
+    subgraph Business["独立业务项目"]
+        BizWeb["kaiwu-{code}-web"]
+        BizService["kaiwu-{code}-service&lt;br/&gt;内置 Starter"]
+        BizDB[("独立业务 MySQL")]
+    end
+    User --> SystemWeb
+    User --> BizWeb
+    SystemWeb -- "/api/**" --> Gateway
+    BizWeb -- "/{code}-api/**" --> Gateway
+    Gateway -- "PLATFORM" --> System
+    Gateway -- "PROJECT" --> BizService
+    Gateway -. "PROJECT 权限缓存未命中" .-> System
+    Gateway --> Redis
+    System --> PlatformDB
+    System --> Artifact
+    BizService --> BizDB
+    style Gateway fill:#fbf1e0,stroke:#a9701f,color:#7a5011
+    style System fill:#e9f0fa,stroke:#2f72c4,color:#1b4a8c
+          </pre></div>
+          <p class="plate-note"><span>所有外部 API 都经过 Gateway；服务注册不等于对外发布。System 只访问平台库，业务服务只访问自己的业务库。Starter 是 SDK，不是独立运行进程。</span></p>
+        </figure>
+
+        <figure class="plate-fig tall reveal">
+          <figcaption class="plate-head">
+            <span class="plate-title"><span class="plate-no">图四</span><h3>PLATFORM 与 PROJECT 请求的授权链路</h3></span>
+            <span class="plate-tag">失败关闭</span>
+          </figcaption>
+          <div class="plate-body"><pre class="mermaid">
+sequenceDiagram
+    autonumber
+    actor User as 用户
+    participant Web as 平台 / 业务前端
+    participant Gateway as Gateway
+    participant Redis as Redis Session
+    participant System as System Service
+    participant Target as 业务 Service + Starter
+    User->>Web: 发起受保护请求
+    Web->>Gateway: Access JWT + API 请求
+    Gateway->>Gateway: 校验签名、issuer、audience、expiry
+    Gateway->>Redis: 检查在线会话
+    Redis-->>Gateway: 会话有效
+    Gateway->>Gateway: 清除客户端伪造的身份与权限头
+    alt PLATFORM 路由 /api/**
+        Gateway->>System: 60 秒、绑定 System audience 的身份 Context
+        System->>System: Starter 验签 + 本地平台权限 + 资源授权
+        System-->>Gateway: 平台响应
+    else PROJECT 路由 /{code}-api/**
+        opt 项目权限缓存未命中
+            Gateway->>System: 内部凭据 + userId + 路由 projectCode
+            System-->>Gateway: 权威 projectId、角色与权限快照
+        end
+        Gateway->>Gateway: 校验项目绑定并签发目标 Context
+        Gateway->>Target: 60 秒、绑定项目与服务 audience 的 Context
+        Target->>Target: Starter 验签 + @RequirePermission + 数据授权
+        Target-->>Gateway: 业务响应
+    end
+    Gateway-->>Web: 返回响应
+          </pre></div>
+          <p class="plate-note"><span><strong>职责分层：</strong>Gateway 判断身份、会话和项目入口；System 维护唯一权限事实；目标服务判断接口权限、数据归属和资源状态。任何关键事实无法确认时都拒绝请求。</span></p>
+        </figure>
+
+        <figure class="plate-fig reveal">
+          <figcaption class="plate-head">
+            <span class="plate-title"><span class="plate-no">图五</span><h3>仓库边界与长期所有权</h3></span>
+            <span class="plate-tag">多仓自治</span>
+          </figcaption>
+          <div class="plate-body"><pre class="mermaid">
+flowchart TB
+    Entry["kaiwu 开源入口&lt;br/&gt;主页、导航、统一命令&lt;br/&gt;不含产品源码"]
+    subgraph Platform["Kaiwu 平台 · 四个独立仓库"]
+        WebRepo["kaiwu-system-web"]
+        GatewayRepo["kaiwu-gateway-service"]
+        SystemRepo["kaiwu-system-service"]
+        StarterRepo["kaiwu-system-starter&lt;br/&gt;Nexus 制品"]
+    end
+    DeployRepo["kaiwu-deploy&lt;br/&gt;可选 GitOps 产品仓"]
+    subgraph Generated["每个业务项目 · 两个独立仓库"]
+        BizWebRepo["kaiwu-{code}-web"]
+        BizServiceRepo["kaiwu-{code}-service"]
+    end
+    Entry -- "首次获取并委托" --> SystemRepo
+    SystemRepo -. "版本化工作区清单" .-> WebRepo
+    SystemRepo -. "版本化工作区清单" .-> GatewayRepo
+    SystemRepo -. "版本化工作区清单" .-> StarterRepo
+    SystemRepo -. "进入 K8s 阶段按需获取" .-> DeployRepo
+    WebRepo -- "HTTP，经 Gateway" --> GatewayRepo
+    GatewayRepo -- "HTTP" --> SystemRepo
+    BizWebRepo -- "HTTP，经 Gateway" --> GatewayRepo
+    GatewayRepo -- "HTTP" --> BizServiceRepo
+    StarterRepo -- "Maven 制品依赖" --> SystemRepo
+    StarterRepo -- "Maven 制品依赖" --> BizServiceRepo
+    SystemRepo == "一次生成" ==> BizWebRepo
+    SystemRepo == "一次生成" ==> BizServiceRepo
+          </pre></div>
+          <p class="plate-note"><span><code>kaiwu</code> 只负责开源发现和命令委托，不保存产品源码。公开 Release 用同名 tag 对齐入口与五个产品仓；普通用户不需要 submodule，各产品仓和业务仓仍可独立构建、发布和回滚。</span></p>
+        </figure>
+      </div>
+    </section>
+
+    <section id="deployment">
+      <div class="shell">
+        <div class="chapter-head">
+          <div class="chapter-mark"><span class="chapter-juan">卷五</span><span class="chapter-en">Deployment</span></div>
+          <h2>部署方式不同，核心架构不变</h2>
+          <p>Compose、本机开发、Nacos 配置模式和 Kubernetes 只改变进程位置、配置来源与寻址方式，不改变入口、权限事实源和业务隔离边界。</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>使用场景</th><th>入口</th><th>应用与基础设施</th><th>配置来源</th><th>Nacos</th></tr></thead>
+            <tbody>
+              <tr><td>首次体验 / 演示</td><td>入口仓 <code>./kaiwu up</code></td><td>全部由 Docker Compose 管理</td><td><code>.kaiwu/dev.env</code> + local profile</td><td><span class="badge no">不需要</span></td></tr>
+              <tr><td>日常前后端开发</td><td>入口仓 <code>./kaiwu dev</code></td><td>MySQL/Redis 在 Docker；应用为本机进程</td><td><code>.kaiwu/dev.env</code> + local profile</td><td><span class="badge no">不需要</span></td></tr>
+              <tr><td>验证 Nacos 配置</td><td><code>./scripts/dev-nacos-run.sh</code></td><td>全部由 Docker Compose 管理</td><td>Nacos <code>dev</code> Data ID</td><td><span class="badge optional">只读配置</span></td></tr>
+              <tr><td>已有开发基础设施</td><td><code>./scripts/kaiwu.sh local-up</code></td><td>应用为本机进程；MySQL/Redis 由环境提供</td><td>Nacos <code>dev</code> Data ID</td><td><span class="badge optional">只读配置</span></td></tr>
+              <tr><td>Kubernetes 部署</td><td>Helm Chart</td><td>System/Gateway/Web 为 Pod；生产使用受管 MySQL/Redis</td><td>Secret + values + 集群 DNS</td><td><span class="badge no">默认不需要</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <figure class="plate-fig reveal">
+          <figcaption class="plate-head">
+            <span class="plate-title"><span class="plate-no">图六</span><h3>Kubernetes 部署拓扑</h3></span>
+            <span class="plate-tag">Helm + 独立业务部署</span>
+          </figcaption>
+          <div class="plate-body"><pre class="mermaid">
+flowchart TB
+    User(["浏览器"]) -- "HTTPS" --> Ingress["Ingress&lt;br/&gt;可选 TLS 入口"]
+    subgraph Chart["Kaiwu Helm Chart"]
+        direction LR
+        WebSvc["Web Service"] --> WebPods["Web Pod(s)&lt;br/&gt;Nginx + 静态资源"]
+        WebPods -- "/api/**" --> GatewaySvc["Gateway Service"]
+        GatewaySvc --> GatewayPods["Gateway Pod(s)"]
+        GatewayPods -- "集群 DNS" --> SystemSvc["System Service"]
+        SystemSvc --> SystemPod["System Pod&lt;br/&gt;默认 1 副本"]
+        Flyway["System 启动前&lt;br/&gt;Flyway initContainer"]
+        RuntimeSecret["kaiwu-runtime Secret"]
+        PVC[("Artifact PVC&lt;br/&gt;ReadWriteOnce")]
+        SystemPod --> PVC
+        RuntimeSecret -. "运行密钥" .-> GatewayPods
+        RuntimeSecret -. "运行密钥" .-> SystemPod
+        RuntimeSecret -. "数据库凭据" .-> Flyway
+    end
+    subgraph Data["部署环境提供"]
+        MySQL[("MySQL 8.4&lt;br/&gt;生产使用受管实例")]
+        Redis[("高可用 Redis")]
+    end
+    subgraph Biz["业务项目独立部署"]
+        BizSvc["kaiwu-{code}-service&lt;br/&gt;Kubernetes Service"]
+        BizPods["业务 Pod(s)"]
+        BizDB[("独立业务数据库")]
+        BizSvc --> BizPods --> BizDB
+    end
+    Ingress --> WebSvc
+    Flyway -- "System 启动前迁移" --> MySQL
+    SystemPod --> MySQL
+    SystemPod --> Redis
+    GatewayPods --> Redis
+    GatewayPods -- "显式 PROJECT 路由&lt;br/&gt;http://kaiwu-{code}-service:8080" --> BizSvc
+          </pre></div>
+          <p class="plate-note"><span>Kubernetes 使用 Service DNS，Nacos 不是启动前提。Web/Gateway 可增加副本；System 因当前使用 ReadWriteOnce 制品卷，默认单副本并采用 <code>Recreate</code>。Flyway 失败时 System 不启动。</span></p>
+        </figure>
+
+        <figure class="plate-fig reveal">
+          <figcaption class="plate-head">
+            <span class="plate-title"><span class="plate-no">图七</span><h3>Nacos 的配置与服务发现边界</h3></span>
+            <span class="plate-tag">注册不等于发布</span>
+          </figcaption>
+          <div class="plate-body"><pre class="mermaid">
+flowchart LR
+    subgraph Config["Nacos 配置中心 · dev 模式"]
+        SystemData["kaiwu-system-service-dev.yml&lt;br/&gt;数据库、Redis、System 参数"]
+        GatewayData["kaiwu-gateway-service-dev.yml&lt;br/&gt;Redis、认证、显式 routes"]
+    end
+    subgraph Discovery["Nacos 服务发现 · 可选的 VM 多实例场景"]
+        Registry["业务服务实例列表&lt;br/&gt;仅 lb:// 场景使用"]
+    end
+    SystemData -. "Config 读取" .-> System["System"]
+    GatewayData -. "Config 读取" .-> Gateway["Gateway"]
+    Gateway --> Route["平台审阅的显式 Route&lt;br/&gt;accessMode + audience + projectCode + uri"]
+    Route -- "http / https" --> DNS["K8s Service DNS&lt;br/&gt;Compose DNS / 固定地址"]
+    DNS --> Biz["业务 Service"]
+    Route -- "lb://服务名" --> LoadBalancer["按服务名选择实例"]
+    Registry --> LoadBalancer --> Biz
+    AutoRoute["discovery locator&lt;br/&gt;始终关闭"]
+    Registry -. "不能自动创建外部路由" .-> AutoRoute
+    style Route fill:#fbf1e0,stroke:#a9701f,color:#7a5011
+    style AutoRoute fill:#fdecea,stroke:#c1483a,color:#8f2b21
+          </pre></div>
+          <p class="plate-note"><span>Nacos 配置中心与服务发现是两件事。只有缺少稳定 DNS 的 VM 多实例场景才可能使用 <code>lb://</code>；无论是否注册，Gateway 的 discovery locator 始终关闭，对外访问必须经过显式 Route 审阅。</span></p>
+        </figure>
+      </div>
+    </section>
+
+    <section id="boundaries">
+      <div class="shell">
+        <div class="chapter-head">
+          <div class="chapter-mark"><span class="chapter-juan">卷六</span><span class="chapter-en">Fit &amp; Boundaries</span></div>
+          <h2>什么团队更适合 Kaiwu</h2>
+          <p>它适合希望统一后台项目治理、快速创建第一版工程，同时要求业务项目独立交付、长期接管并持续使用 AI Coding 的团队。</p>
+        </div>
+        <div class="two-column">
+          <article class="info-card good"><h3>更适合</h3><ul><li>持续创建多个需要独立发布和回滚的业务项目</li><li>希望复用身份、项目、权限等治理，但不共享业务代码和数据库</li><li>希望 AI 加速开发，同时让工程结构、安全和质量底线可验证</li><li>接受统一的 Spring Boot 4 / JDK 21 / Umi Max 技术基线</li></ul></article>
+          <article class="info-card limit"><h3>当前不适合</h3><ul><li>希望模型持续向任意已有仓库写代码或执行命令</li><li>希望在同一低代码运行时动态拼装业务模块</li><li>每个项目都需要完全不同的技术栈</li><li>期望平台自动把新模板回写到已交付项目</li></ul></article>
+        </div>
+        <div class="callout"><p><strong>三个现实边界：</strong>成功生成后不会再次生成；Gateway 路由片段已经生成但写入受管配置仍是人工步骤；Kubernetes 中 System 当前因 ReadWriteOnce 制品卷保持单副本。</p></div>
+
+        <h3 class="reading-title">继续阅读</h3>
+        <div class="reading-grid">
+          <a class="reading-card" href="OVERVIEW.md"><strong>10 分钟产品概览</strong><span>先理解产品能力与使用主线</span></a>
+          <a class="reading-card" href="QUICKSTART.md"><strong>从零开始使用</strong><span>本地启动与日常开发</span></a>
+          <a class="reading-card" href="ARCHITECTURE.md"><strong>完整架构设计</strong><span>查看组件职责与硬约束</span></a>
+          <a class="reading-card" href="PROJECT_FACTORY.md"><strong>项目工厂</strong><span>生成状态机、制品与 GitLab 边界</span></a>
+          <a class="reading-card" href="PROJECT_ACCESS.md"><strong>项目对外访问</strong><span>路由登记与项目入口授权</span></a>
+          <a class="reading-card" href="KUBERNETES.md"><strong>Kubernetes 部署</strong><span>安装、升级、回滚与运维边界</span></a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell footer-inner"><span>Kaiwu Architecture Guide · 可视化阅读版</span><span>本页负责快速理解，架构事实以 Markdown 与 ADR 为准。</span></div>
+  </footer>
+
+  <script>
+    (() => {
+      const root = document.getElementById('story');
+      const data = [
+        { label: '有效上下文不足', painTitle: '「代码看了一大圈，关键关系还是没进上下文」', painBody: '业务代码、平台能力和公共模块混在一起时，AI 会把大量上下文用在判断“哪些与这次需求无关”，真正的调用链反而只读到一部分。', answerTitle: '把业务边界变成代码边界', answerBody: '业务代码留在独立项目仓库，平台能力通过 Gateway Context、Starter 等稳定契约接入，仓库地图标明主要入口。', resultTitle: '每次会话更快进入有效修改', resultBody: '检索范围从整个平台收敛到当前业务，有限上下文优先用于真正相关的代码和依赖。' },
+        { label: '项目规则难继承', painTitle: '「每次换人或换工具，都要重新解释项目规矩」', painBody: '启动方式、目录约定和安全边界只存在于口头、聊天记录或个人全局配置里。换一个协作者，就从猜命令、试错和补提示开始。', answerTitle: '让工程上下文跟着仓库走', answerBody: 'AGENTS、CLAUDE、README、构建命令、启动脚本和工程约束一起版本化，成为所有协作者的共同入口。', resultTitle: '新成员不再从零猜项目', resultBody: '人和不同 AI 工具都从同一份当前规则开始，基础约定不会随会话结束或工具切换而消失。' },
+        { label: '跨层修改易遗漏', painTitle: '「页面改完了，接口、权限、菜单或 SQL 漏了一处」', painBody: '一个需求经常同时穿过前端、后端、权限和数据库。AI 写得越快，越容易把“主流程能跑”误当成“整条契约已经完整”。', answerTitle: '把跨层约束变成可执行检查', answerBody: '权限、字典、迁移、查询和日志等契约进入确定性模板、本地检查与 CI，不靠提示词逐项提醒。', resultTitle: '遗漏在提交前直接暴露', resultBody: '可判断的不一致由构建反馈，人工评审可以集中判断业务，而不是逐文件查漏。' },
+        { label: '反向路径缺失', painTitle: '「正常流程能跑，但谁不该看到没有答案」', painBody: '演示通常只验证正确用户的成功路径；缺少项目身份、权限不足、数据不归属或依赖不可用时，生成代码很容易默认放行或行为不一致。', answerTitle: '先定义边界，再验证失败关闭', answerBody: 'Gateway、System、Starter 与业务服务分层授权，业务资源明确数据归属，并用反向用例验证拒绝路径。', resultTitle: '能运行，也能证明不会越权', resultBody: '第一版同时说明谁能访问、谁必须被拒绝；身份或权限事实不完整时不会放行。' },
+        { label: '演示完成，交付未开始', painTitle: '「页面和接口都有了，上线却还要重做一遍」', painBody: '没有迁移、镜像、CI、Secret 约束和稳定构建入口的代码，只完成了演示。真正交付时，团队还要重新补齐整套工程。', answerTitle: '让交付基线随项目一起生成', answerBody: 'Flyway、Dockerfile、验证 CI、构建命令、安全约束和发布接入文件与业务代码同时落入仓库。', resultTitle: '第一版直接进入持续开发', resultBody: '项目可以继续构建、测试和准备发布，不需要先把一次性演示改造成工程。' }
+      ];
+      let selected = 0;
+      const choices = root.querySelector('.choices');
+      const fields = Object.fromEntries([...root.querySelectorAll('[data-field]')].map((el) => [el.dataset.field, el]));
+      function render() {
+        choices.replaceChildren(...data.map((item, index) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.textContent = item.label;
+          button.setAttribute('aria-pressed', String(index === selected));
+          button.addEventListener('click', () => { selected = index; render(); });
+          return button;
+        }));
+        Object.entries(data[selected]).forEach(([key, value]) => { if (fields[key]) fields[key].textContent = value; });
+      }
+      render();
+    })();
+  </script>
+  <script>
+    /* 阅读进度、章节高亮与图版入场 */
+    (() => {
+      const bar = document.getElementById('progress');
+      const onScroll = () => {
+        const max = document.documentElement.scrollHeight - window.innerHeight;
+        bar.style.width = (max > 0 ? (window.scrollY / max) * 100 : 0) + '%';
+      };
+      addEventListener('scroll', onScroll, { passive: true });
+      addEventListener('resize', onScroll);
+      onScroll();
+
+      const links = [...document.querySelectorAll('.topnav a[href^="#"]')];
+      const targets = links
+        .map((link) => ({ link, section: document.querySelector(link.getAttribute('href')) }))
+        .filter((entry) => entry.section);
+      if (targets.length) {
+        const spy = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            const match = targets.find((item) => item.section === entry.target);
+            if (!match) return;
+            if (entry.isIntersecting) {
+              targets.forEach((item) => item.link.removeAttribute('aria-current'));
+              match.link.setAttribute('aria-current', 'true');
+            }
+          });
+        }, { rootMargin: '-45% 0px -50% 0px' });
+        targets.forEach((item) => spy.observe(item.section));
+      }
+
+      const reveals = [...document.querySelectorAll('.reveal')];
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        reveals.forEach((el) => el.classList.add('in'));
+      } else {
+        const io = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('in');
+              io.unobserve(entry.target);
+            }
+          });
+        }, { rootMargin: '0px 0px -12% 0px' });
+        reveals.forEach((el) => io.observe(el));
+      }
+    })();
+  </script>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: true,
+      securityLevel: 'strict',
+      theme: 'base',
+      themeVariables: {
+        fontFamily: '-apple-system, PingFang SC, Microsoft YaHei, sans-serif',
+        fontSize: '14px',
+        primaryColor: '#ffffff',
+        primaryTextColor: '#23262b',
+        primaryBorderColor: '#8e98a6',
+        lineColor: '#8e98a6',
+        textColor: '#23262b',
+        secondaryColor: '#fbf1e0',
+        tertiaryColor: '#f1f4f8',
+        mainBkg: '#ffffff',
+        clusterBkg: '#f4f7fa',
+        clusterBorder: '#c5cdd8',
+        titleColor: '#23262b',
+        edgeLabelBackground: '#f8fafc',
+        noteBkgColor: '#fbf1e0',
+        noteBorderColor: '#a9701f',
+        actorBkg: '#ffffff',
+        actorBorder: '#8e98a6',
+        actorTextColor: '#23262b',
+        signalColor: '#555c66',
+        signalTextColor: '#23262b',
+        labelBoxBkgColor: '#fbf1e0',
+        labelBoxBorderColor: '#a9701f',
+        sequenceNumberColor: '#ffffff',
+        activationBkgColor: '#e9f0fa',
+        activationBorderColor: '#2f72c4'
+      },
+      flowchart: { htmlLabels: true, curve: 'basis' },
+      sequence: { useMaxWidth: true, wrap: true }
+    });
+  </script>
+</body>
+</html>

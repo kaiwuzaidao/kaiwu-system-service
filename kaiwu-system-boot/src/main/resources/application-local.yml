@@ -1,0 +1,63 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  datasource:
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:kaiwu_platform}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: ${DB_USER:kaiwu}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+
+kaiwu:
+  gateway-access:
+    # Gateway 查询项目入口授权的内部凭据；未配置时该端点直接拒绝。
+    internal-token: ${KAIWU_GATEWAY_INTERNAL_TOKEN:}
+  notification:
+    # 业务服务投递站内信的共享凭据；未设置时投递端点直接拒绝，不提供默认值。
+    delivery-token: ${KAIWU_NOTIFICATION_DELIVERY_TOKEN:}
+  metadata:
+    encryption-key: ${KAIWU_CONFIG_ENCRYPTION_KEY:}
+  ai-provider:
+    # 出站默认关闭：两项必须同时配置，缺任一都拒绝连接（docs/NACOS.md）。
+    # 逗号分隔的精确目标主机名，不接受 IP 或通配符。
+    allowed-hosts: ${KAIWU_AI_PROVIDER_ALLOWED_HOSTS:}
+    # 受控 HTTP 出站代理；本地为 compose 的 ai-egress-proxy 服务。
+    egress-proxy-uri: ${KAIWU_AI_PROVIDER_EGRESS_PROXY_URI:}
+  codegen:
+    artifact-root: ${KAIWU_ARTIFACT_ROOT:/var/lib/kaiwu/artifacts}
+    gitlab:
+      base-url: ${KAIWU_GITLAB_URL:}
+      token: ${KAIWU_GITLAB_TOKEN:}
+  auth:
+    access-private-key: ${KAIWU_ACCESS_PRIVATE_KEY}
+    bootstrap-admin-password: ${KAIWU_BOOTSTRAP_ADMIN_PASSWORD}
+    access-ttl-seconds: ${KAIWU_ACCESS_TTL_SECONDS:900}
+    refresh-ttl-seconds: ${KAIWU_REFRESH_TTL_SECONDS:604800}
+    # local profile 使用 HTTP；受管 HTTPS 环境保持默认 true。
+    refresh-cookie-secure: false
+  starter:
+    enabled: true
+    context-public-key: ${KAIWU_CONTEXT_PUBLIC_KEY}
+    audience: kaiwu-system-service
+    include-paths:
+      - /api/**
+    exclude-paths:
+      - /api/hello
+      - /api/auth/login
+      - /api/auth/refresh
+      - /api/public/i18n/catalog
+      # 站内信投递是服务端到服务端的单向调用，不携带 Gateway Context；
+      # Gateway 的 InternalEndpointBlockFilter 已阻断外部访问 /internal，
+      # 端点自身再校验服务凭据（ADR 0007）。
+      - /api/internal/**
+      - /actuator/health
+      - /actuator/health/**
+
+mybatis-plus:
+  # 单表 CRUD 用 BaseMapper；复杂 JOIN、动态条件与报表查询优先使用 mapper XML。
+  mapper-locations: classpath*:/mapper/**/*.xml

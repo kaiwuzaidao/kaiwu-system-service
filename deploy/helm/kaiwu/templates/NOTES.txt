@@ -1,0 +1,21 @@
+Kaiwu has been installed.
+
+1. Wait for workloads:
+   kubectl rollout status deployment/{{ include "kaiwu.fullname" . }}-system -n {{ .Release.Namespace }}
+   kubectl rollout status deployment/{{ include "kaiwu.fullname" . }}-gateway -n {{ .Release.Namespace }}
+   kubectl rollout status deployment/{{ include "kaiwu.fullname" . }}-web -n {{ .Release.Namespace }}
+
+2. Local access when Ingress is disabled:
+   kubectl port-forward service/{{ include "kaiwu.fullname" . }}-web 8000:{{ .Values.web.service.port }} -n {{ .Release.Namespace }}
+   Open http://127.0.0.1:8000
+
+3. Username:
+   admin
+
+The bootstrap password is stored in Secret {{ include "kaiwu.secretName" . }} under key
+{{ .Values.runtimeSecret.keys.bootstrapAdminPassword }}. It is only valid for a new database.
+
+{{- if or .Values.database.embedded .Values.redis.embedded }}
+WARNING: Embedded MySQL/Redis are enabled. This mode is for demos and development only.
+Use values-production.yaml with managed external services for production.
+{{- end }}

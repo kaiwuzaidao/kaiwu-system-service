@@ -1,0 +1,48 @@
+-- ${projectName}的受管字典种子。导入 Kaiwu System 库（平台库），不进业务库。
+--
+-- 文件是 UTF-8。客户端连接字符集若不是 utf8mb4（容器里的 mysql CLI 常按 latin1
+-- 起连接），中文会被当成 latin1 再转一次，落库变成 "å‘ç¥¨..." 这样的双重编码。
+-- 在此显式声明，导入命令怎么写都不会种错。
+SET NAMES utf8mb4;
+
+-- ------------------------------------------------------------------
+-- 为什么需要这个文件
+--
+-- 前端的 ManagedDictSelect / ManagedDictText 和 `pnpm check:dict` 门禁都已就位，
+-- 但脚手架**不会替你猜业务枚举**，所以初始状态下一个字典都没有。注意：
+-- check:dict 在"零字典"时是通过的——门禁绿灯不代表字典可用。页面上的下拉框会是
+-- 空的，标签会原样显示字典值。
+--
+-- 下面是一条可直接复制的完整示例。按自己的枚举改写后导入，再在页面里用
+-- <ManagedDictSelect dictCode="..." /> 或 <ManagedDictText dictCode="..." /> 引用。
+--
+-- 三个约定不要改：
+--   scope_id        固定为本项目 ID，表示这是项目私有字典；
+--   inherit_global  取 0，不去继承 scope_id=0 的平台全局字典；
+--   颜色            只用语义色（success/error/processing/warning/default），
+--                   纯分类不着色——给每个值都上色等于没有重点。
+--
+-- ID 自行生成雪花 ID 或任何不冲突的长整型，避开平台自用的 91/92 开头号段。
+--
+-- 导入：
+--   mysql --default-character-set=utf8mb4 -h <平台库主机> -u <用户> -p <平台库名> < sql/dict.sql
+-- ------------------------------------------------------------------
+
+-- 示例：记录状态
+-- INSERT INTO sys_dict_type
+--     (id, scope_id, dict_code, dict_name, inherit_global, sort_no, status, description, created_at, updated_at)
+-- VALUES
+--     (8000000000000000001, ${projectId}, '${projectCode}.record_status', '记录状态', 0, 0, 'ENABLED', '示例：把这里换成你的业务枚举。', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+-- ON DUPLICATE KEY UPDATE
+--     dict_name = VALUES(dict_name), inherit_global = 0, status = 'ENABLED',
+--     description = VALUES(description), updated_at = CURRENT_TIMESTAMP;
+--
+-- INSERT INTO sys_dict_item
+--     (id, dict_type_id, item_label, item_value, sort_no, default_item, color, status, created_at, updated_at)
+-- VALUES
+--     (8000000000000000002, 8000000000000000001, '待处理', 'PENDING',   10, 1, 'processing', 'ENABLED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+--     (8000000000000000003, 8000000000000000001, '已完成', 'DONE',      20, 0, 'success',    'ENABLED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+--     (8000000000000000004, 8000000000000000001, '已取消', 'CANCELLED', 30, 0, 'default',    'ENABLED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+-- ON DUPLICATE KEY UPDATE
+--     item_label = VALUES(item_label), sort_no = VALUES(sort_no),
+--     color = VALUES(color), status = 'ENABLED', updated_at = CURRENT_TIMESTAMP;

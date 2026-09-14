@@ -1,0 +1,25 @@
+{
+  "folders": [
+    {
+      "name": "Kaiwu System Service",
+      "path": "."
+    },
+    {
+      "name": "Kaiwu Gateway Service",
+      "path": "../kaiwu-gateway-service"
+    },
+    {
+      "name": "Kaiwu System Web",
+      "path": "../kaiwu-system-web"
+    },
+    {
+      "name": "Kaiwu System Starter",
+      "path": "../kaiwu-system-starter"
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/.DS_Store": true
+    }
+  }
+}

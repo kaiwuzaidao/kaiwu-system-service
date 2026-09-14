@@ -1,0 +1,23 @@
+{{/*
+平台前端的 nginx 站点配置。这里承载着整个平台的路由：/api/ 与 /{project}-api/
+转发到 Gateway、各业务子应用的反代、以及 SPA 的 fallback。
+
+在此之前它是用裸 kubectl apply 建的 ConfigMap kaiwu-web-nginx-extra，不属于任何
+chart 或 release——Deployment 里那条 volume 引用同样没有任何声明，仅靠 ArgoCD
+三方合并保留非自己管理的字段才活着。一次强制重建或 replace 同步就会丢，届时平台
+整体不可路由。因此收进 chart。
+
+名称沿用 kaiwu-web-nginx-extra（不加 fullname 前缀）：这样渲染结果与集群现状逐字
+一致，ArgoCD 直接接管既有对象，不产生任何变更、不触发 Pod 重启。
+*/}}
+{{- if .Values.web.nginxTemplate }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kaiwu-web-nginx-extra
+  labels:
+    {{- include "kaiwu.labels" . | nindent 4 }}
+data:
+  default.conf.template: |
+{{ .Values.web.nginxTemplate | indent 4 }}
+{{- end }}

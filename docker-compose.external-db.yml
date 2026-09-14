@@ -1,0 +1,17 @@
+# 接外部 MySQL：不创建内置 mysql，Flyway 与应用都指向 KAIWU_DB_* 给出的地址。
+#
+#   export KAIWU_DB_HOST=mysql.internal KAIWU_MYSQL_PASSWORD='...'
+#   docker compose -f docker-compose.yml -f docker-compose.external-db.yml up -d
+#
+# 可与 docker-compose.external-redis.yml 叠加，也可单独使用——
+# 只换数据库、Redis 仍用内置的，是常见组合。
+services:
+  # compose 的 override 只能合并、不能移除 service。挂一个不激活的 profile，
+  # 它就不会被创建。
+  mysql:
+    profiles: ["bundled-db"]
+
+  # 清掉对内置 mysql 的依赖。!reset 清空字段本身；注意它会忽略后面跟的内容，
+  # 需要“替换成别的值”时用 !override（见 external-redis 那份）。
+  schema-compat-check:
+    depends_on: !reset []

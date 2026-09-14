@@ -1,0 +1,26 @@
+# 放进已有 nginx 的 http {} 中，并按实际域名、证书和业务前端端口调整。
+server {
+    listen 80;
+    server_name kaiwu.example.com;
+
+    # 平台前端；其自身把 /api/ 转发到 Gateway。
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # 每个业务前端增加一段同源静态入口；从生成前端仓复制实际 location。
+    location /apps/__PROJECT_CODE__/ {
+        proxy_pass http://127.0.0.1:__BUSINESS_WEB_PORT__;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # 业务 API 必须进入 Gateway，不能直连业务服务。
+    location /__PROJECT_CODE__-api/ {
+        proxy_pass http://127.0.0.1:8088;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}

@@ -1,0 +1,33 @@
+# 与 docker-compose.yml 叠加使用：从 Nacos 读取运行配置，而不是从环境变量逐项注入。
+# Nacos 地址、命名空间和密码只从当前进程环境传入，不能写入此文件。
+#
+# profile 决定读哪两个 Data ID：kaiwu-system-service-<profile>.yml 与
+# kaiwu-gateway-service-<profile>.yml。默认 dev，服务器上用自己的 profile：
+#   export KAIWU_SPRING_PROFILE=prod   # 对应 kaiwu-system-service-prod.yml
+# 详见 docs/NACOS.md 与 docs/SERVER-DEPLOYMENT.md。
+services:
+  system-service:
+    environment:
+      SPRING_PROFILES_ACTIVE: ${KAIWU_SPRING_PROFILE:-dev}
+      SPRING_CLOUD_NACOS_CONFIG_ENABLED: "true"
+      SPRING_CLOUD_NACOS_DISCOVERY_ENABLED: "false"
+      # Java Nacos Client 需要 HTTP/gRPC 直连；配置发布 API 才走 HTTPS Console 域名。
+      NACOS_SERVER_ADDR: ${KAIWU_NACOS_SERVER_ADDR:?KAIWU_NACOS_SERVER_ADDR is required}
+      NACOS_USER: ${KAIWU_NACOS_USERNAME:?KAIWU_NACOS_USERNAME is required}
+      NACOS_PASSWORD: ${KAIWU_NACOS_PASSWORD:?KAIWU_NACOS_PASSWORD is required}
+      NACOS_NAMESPACE: ${KAIWU_NACOS_NAMESPACE:?KAIWU_NACOS_NAMESPACE is required}
+      # Nacos dev 配置引用这些环境变量；密钥与密码不会写入 Nacos 或 Git。
+      KAIWU_MYSQL_PASSWORD: ${KAIWU_MYSQL_PASSWORD:?KAIWU_MYSQL_PASSWORD is required}
+      KAIWU_REDIS_PASSWORD: ${KAIWU_REDIS_PASSWORD:?KAIWU_REDIS_PASSWORD is required}
+
+  gateway-service:
+    environment:
+      SPRING_PROFILES_ACTIVE: ${KAIWU_SPRING_PROFILE:-dev}
+      SPRING_CLOUD_NACOS_CONFIG_ENABLED: "true"
+      SPRING_CLOUD_NACOS_DISCOVERY_ENABLED: "false"
+      KAIWU_SYSTEM_SERVICE_URI: http://system-service:8080
+      NACOS_SERVER_ADDR: ${KAIWU_NACOS_SERVER_ADDR:?KAIWU_NACOS_SERVER_ADDR is required}
+      NACOS_USER: ${KAIWU_NACOS_USERNAME:?KAIWU_NACOS_USERNAME is required}
+      NACOS_PASSWORD: ${KAIWU_NACOS_PASSWORD:?KAIWU_NACOS_PASSWORD is required}
+      NACOS_NAMESPACE: ${KAIWU_NACOS_NAMESPACE:?KAIWU_NACOS_NAMESPACE is required}
+      KAIWU_REDIS_PASSWORD: ${KAIWU_REDIS_PASSWORD:?KAIWU_REDIS_PASSWORD is required}

@@ -1,0 +1,12 @@
+{{- if and .Values.gateway.managedRoutes (not .Values.gateway.managedRoutesExistingConfigMap) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kaiwu.fullname" . }}-gateway-routes
+  labels:
+    {{- include "kaiwu.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+data:
+  routes.yml: |
+    {{- toYaml .Values.gateway.managedRoutes | nindent 4 }}
+{{- end }}

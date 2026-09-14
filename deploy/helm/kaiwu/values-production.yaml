@@ -1,0 +1,55 @@
+images:
+  system:
+    repository: ghcr.io/kaiwuzaidao/kaiwu-system-service
+    tag: v0.1.0
+    pullPolicy: IfNotPresent
+  gateway:
+    repository: ghcr.io/kaiwuzaidao/kaiwu-gateway-service
+    tag: v0.1.0
+    pullPolicy: IfNotPresent
+  web:
+    repository: ghcr.io/kaiwuzaidao/kaiwu-system-web
+    tag: v0.1.0
+    pullPolicy: IfNotPresent
+
+runtimeSecret:
+  existingSecret: kaiwu-runtime
+
+database:
+  embedded: false
+  host: mysql.example.internal
+  port: 3306
+  name: kaiwu_platform
+  username: kaiwu
+
+redis:
+  embedded: false
+  host: redis.example.internal
+  port: 6379
+
+system:
+  # 当前制品目录使用 RWO PVC，默认保持单副本。接入共享对象存储后再扩容。
+  replicaCount: 1
+  artifactPersistence:
+    enabled: true
+    storageClass: standard
+    size: 20Gi
+
+gateway:
+  replicaCount: 2
+
+web:
+  replicaCount: 2
+
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: kaiwu.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: kaiwu-tls
+      hosts:
+        - kaiwu.example.com

@@ -1,0 +1,17 @@
+{{- if and .Values.system.artifactPersistence.enabled (not .Values.system.artifactPersistence.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "kaiwu.fullname" . }}-artifacts
+  labels:
+    {{- include "kaiwu.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- with .Values.system.artifactPersistence.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.system.artifactPersistence.size }}
+{{- end }}

@@ -1,0 +1,139 @@
+{{- if and .Values.gateway.managedRoutes .Values.gateway.managedRoutesExistingConfigMap }}
+{{- fail "gateway.managedRoutes 与 gateway.managedRoutesExistingConfigMap 不能同时配置" }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kaiwu.fullname" . }}-gateway
+  labels:
+    {{- include "kaiwu.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+spec:
+  replicas: {{ .Values.gateway.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "kaiwu.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: gateway
+  template:
+    metadata:
+      labels:
+        {{- include "kaiwu.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: gateway
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: gateway
+          image: {{ include "kaiwu.image" .Values.images.gateway }}
+          imagePullPolicy: {{ .Values.images.gateway.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8088
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: local
+            - name: SPRING_CLOUD_NACOS_CONFIG_ENABLED
+              value: "false"
+            - name: SPRING_CLOUD_NACOS_DISCOVERY_ENABLED
+              value: {{ .Values.serviceAddressing.discoveryEnabled | quote }}
+            {{- if .Values.serviceAddressing.discoveryEnabled }}
+            # 入口不需要被其他服务发现，只发现不注册（ADR 0024 §6）。
+            - name: SPRING_CLOUD_NACOS_DISCOVERY_REGISTER_ENABLED
+              value: "false"
+            {{- end }}
+            - name: KAIWU_SYSTEM_SERVICE_URI
+              value: {{ include "kaiwu.systemServiceUri" . | quote }}
+            - name: REDIS_HOST
+              value: {{ include "kaiwu.redisHost" . | quote }}
+            - name: REDIS_PORT
+              value: {{ .Values.redis.port | quote }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kaiwu.secretName" . }}
+                  key: {{ .Values.runtimeSecret.keys.redisPassword }}
+            - name: KAIWU_ACCESS_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kaiwu.secretName" . }}
+                  key: {{ .Values.runtimeSecret.keys.accessPublicKey }}
+            - name: KAIWU_CONTEXT_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kaiwu.secretName" . }}
+                  key: {{ .Values.runtimeSecret.keys.contextPrivateKey }}
+            - name: KAIWU_GATEWAY_INTERNAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kaiwu.secretName" . }}
+                  key: {{ .Values.runtimeSecret.keys.gatewayInternalToken }}
+            {{- if or .Values.gateway.managedRoutes .Values.gateway.managedRoutesExistingConfigMap }}
+            - name: KAIWU_GATEWAY_MANAGED_ROUTES_DIR
+              value: /etc/kaiwu/gateway-routes
+            {{- end }}
+            {{- with .Values.serviceAddressing.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.gateway.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: gateway-tmp
+              mountPath: /tmp
+            {{- if or .Values.gateway.managedRoutes .Values.gateway.managedRoutesExistingConfigMap }}
+            - name: gateway-managed-routes
+              mountPath: /etc/kaiwu/gateway-routes
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: gateway-tmp
+          emptyDir: {}
+        {{- if or .Values.gateway.managedRoutes .Values.gateway.managedRoutesExistingConfigMap }}
+        - name: gateway-managed-routes
+          configMap:
+            name: {{ default (printf "%s-gateway-routes" (include "kaiwu.fullname" .)) .Values.gateway.managedRoutesExistingConfigMap }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

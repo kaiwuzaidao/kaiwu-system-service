@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kaiwu.fullname" . }}-web
+  labels:
+    {{- include "kaiwu.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  replicas: {{ .Values.web.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "kaiwu.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: web
+  template:
+    metadata:
+      labels:
+        {{- include "kaiwu.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: web
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 20
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        fsGroup: 101
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: web
+          image: {{ include "kaiwu.image" .Values.images.web }}
+          imagePullPolicy: {{ .Values.images.web.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: KAIWU_GATEWAY_UPSTREAM
+              value: "{{ include "kaiwu.fullname" . }}-gateway:8088"
+          startupProbe:
+            httpGet:
+              path: /
+              port: http
+            failureThreshold: 20
+            periodSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.web.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: web-tmp
+              mountPath: /tmp
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+            - name: nginx-runtime-config
+              mountPath: /etc/nginx/conf.d
+            {{- if .Values.web.nginxTemplate }}
+            - name: nginx-templates
+              mountPath: /etc/nginx/templates
+            {{- end }}
+      volumes:
+        - name: web-tmp
+          emptyDir: {}
+        - name: nginx-cache
+          emptyDir: {}
+        # nginx-unprivileged 的入口脚本会把模板渲染到该目录。
+        - name: nginx-runtime-config
+          emptyDir: {}
+        {{- if .Values.web.nginxTemplate }}
+        # 站点配置来自 web.nginxTemplate；入口脚本做 envsubst 后写入上面的目录。
+        - name: nginx-templates
+          configMap:
+            name: kaiwu-web-nginx-extra
+            defaultMode: 420
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

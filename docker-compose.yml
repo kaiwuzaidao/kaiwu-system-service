@@ -1,0 +1,167 @@
+name: kaiwu
+
+services:
+  mysql:
+    image: mysql:8.4
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci
+    environment:
+      MYSQL_DATABASE: kaiwu_platform
+      MYSQL_USER: kaiwu
+      MYSQL_PASSWORD: ${KAIWU_MYSQL_PASSWORD:?KAIWU_MYSQL_PASSWORD is required}
+      MYSQL_ROOT_PASSWORD: ${KAIWU_MYSQL_ROOT_PASSWORD:?KAIWU_MYSQL_ROOT_PASSWORD is required}
+    volumes:
+      - kaiwu-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  redis:
+    image: redis:7.4-alpine
+    command:
+      - sh
+      - -c
+      - exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"
+    environment:
+      REDIS_PASSWORD: ${KAIWU_REDIS_PASSWORD:?KAIWU_REDIS_PASSWORD is required}
+    volumes:
+      - kaiwu-redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  # 在 Flyway 和应用启动前拒绝复用高于当前迁移线的旧开发库，避免服务健康但运行期 SQL 失败。
+  schema-compat-check:
+    image: mysql:8.4
+    entrypoint: ["sh", "/usr/local/bin/check-flyway-compatibility.sh", "/migrations"]
+    environment:
+      DB_HOST: ${KAIWU_DB_HOST:-mysql}
+      DB_PORT: ${KAIWU_DB_PORT:-3306}
+      DB_NAME: ${KAIWU_DB_NAME:-kaiwu_platform}
+      DB_USER: ${KAIWU_DB_USER:-kaiwu}
+      DB_PASSWORD: ${KAIWU_MYSQL_PASSWORD:?KAIWU_MYSQL_PASSWORD is required}
+    volumes:
+      - ./scripts/check-flyway-compatibility.sh:/usr/local/bin/check-flyway-compatibility.sh:ro
+      - ./sql/increment:/migrations:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  # Kaiwu 作为全新项目从 V1 完整基线初始化，不接收既有数据库自动 baseline。
+  # flyway_schema_history 记录已应用版本，后续只执行新增迁移。
+  db-migrate:
+    image: flyway/flyway:11-alpine
+    command: -connectRetries=60 migrate
+    environment:
+      FLYWAY_URL: jdbc:mysql://${KAIWU_DB_HOST:-mysql}:${KAIWU_DB_PORT:-3306}/${KAIWU_DB_NAME:-kaiwu_platform}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      FLYWAY_USER: ${KAIWU_DB_USER:-kaiwu}
+      FLYWAY_PASSWORD: ${KAIWU_MYSQL_PASSWORD:?KAIWU_MYSQL_PASSWORD is required}
+      FLYWAY_LOCATIONS: filesystem:/flyway/sql
+      FLYWAY_DEFAULT_SCHEMA: ${KAIWU_DB_NAME:-kaiwu_platform}
+      FLYWAY_TABLE: flyway_schema_history
+      FLYWAY_BASELINE_ON_MIGRATE: "false"
+    volumes:
+      - ./sql/increment:/flyway/sql:ro
+    depends_on:
+      schema-compat-check:
+        condition: service_completed_successfully
+
+  # 本地 AI 出站的唯一出口（docs/NACOS.md）：应用只连它，域名白名单在这里二次强制。
+  # 放在独立 profile 里，不用 AI 时整条链路保持默认关闭，一键启动行为不变：
+  #   docker compose --profile ai-egress up -d
+  ai-egress-proxy:
+    image: ubuntu/squid:6.6-24.04_edge
+    profiles: ["ai-egress"]
+    entrypoint: ["sh", "/usr/local/bin/kaiwu-egress-entrypoint.sh"]
+    # Docker Desktop 的内置 DNS 在部分 VPN/内网环境无法解析公网模型域名。
+    # 解析仍发生在受控代理内；部署方可用环境变量替换为自己的可信 DNS。
+    dns:
+      - ${KAIWU_AI_PROVIDER_DNS_PRIMARY:-223.5.5.5}
+      - ${KAIWU_AI_PROVIDER_DNS_SECONDARY:-119.29.29.29}
+    environment:
+      # 这里不能用 ${VAR:?}：compose 对所有 service 做插值，会连带破坏不启用 AI 的一键启动。
+      # 缺失时由 entrypoint.sh 拒绝启动并打印原因，仍然是 fail-closed。
+      KAIWU_AI_PROVIDER_ALLOWED_HOSTS: ${KAIWU_AI_PROVIDER_ALLOWED_HOSTS:-}
+    volumes:
+      - ./docker/ai-egress-proxy/squid.conf:/etc/squid/squid.conf:ro
+      - ./docker/ai-egress-proxy/entrypoint.sh:/usr/local/bin/kaiwu-egress-entrypoint.sh:ro
+
+  system-service:
+    build:
+      context: ..
+      dockerfile: kaiwu-system-service/Dockerfile
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      DB_HOST: ${KAIWU_DB_HOST:-mysql}
+      DB_PORT: ${KAIWU_DB_PORT:-3306}
+      DB_NAME: ${KAIWU_DB_NAME:-kaiwu_platform}
+      DB_USER: ${KAIWU_DB_USER:-kaiwu}
+      DB_PASSWORD: ${KAIWU_MYSQL_PASSWORD:?KAIWU_MYSQL_PASSWORD is required}
+      REDIS_HOST: ${KAIWU_REDIS_HOST:-redis}
+      REDIS_PORT: ${KAIWU_REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${KAIWU_REDIS_PASSWORD:?KAIWU_REDIS_PASSWORD is required}
+      KAIWU_BOOTSTRAP_ADMIN_PASSWORD: ${KAIWU_BOOTSTRAP_ADMIN_PASSWORD:?KAIWU_BOOTSTRAP_ADMIN_PASSWORD is required}
+      KAIWU_ACCESS_PRIVATE_KEY: ${KAIWU_ACCESS_PRIVATE_KEY:?KAIWU_ACCESS_PRIVATE_KEY is required}
+      KAIWU_CONTEXT_PUBLIC_KEY: ${KAIWU_CONTEXT_PUBLIC_KEY:?KAIWU_CONTEXT_PUBLIC_KEY is required}
+      KAIWU_CONFIG_ENCRYPTION_KEY: ${KAIWU_CONFIG_ENCRYPTION_KEY:?KAIWU_CONFIG_ENCRYPTION_KEY is required}
+      KAIWU_ARTIFACT_ROOT: /var/lib/kaiwu/artifacts
+      KAIWU_GITLAB_URL: ${KAIWU_GITLAB_URL:-}
+      KAIWU_GITLAB_TOKEN: ${KAIWU_GITLAB_TOKEN:-}
+      # 业务服务投递站内信的共享凭据；未设置时投递端点直接拒绝（ADR 0007）。
+      KAIWU_NOTIFICATION_DELIVERY_TOKEN: ${KAIWU_NOTIFICATION_DELIVERY_TOKEN:-}
+      KAIWU_GATEWAY_INTERNAL_TOKEN: ${KAIWU_GATEWAY_INTERNAL_TOKEN:?KAIWU_GATEWAY_INTERNAL_TOKEN is required}
+      # AI 出站默认关闭：两项都为空时任何模型地址都被策略拒绝。启用本地 AI 需要同时
+      # export 这两个变量并带上 --profile ai-egress 启动（docs/NACOS.md）。
+      KAIWU_AI_PROVIDER_ALLOWED_HOSTS: ${KAIWU_AI_PROVIDER_ALLOWED_HOSTS:-}
+      KAIWU_AI_PROVIDER_EGRESS_PROXY_URI: ${KAIWU_AI_PROVIDER_EGRESS_PROXY_URI:-}
+      SPRING_CLOUD_NACOS_DISCOVERY_ENABLED: "false"
+      SPRING_CLOUD_NACOS_CONFIG_ENABLED: "false"
+    volumes:
+      - kaiwu-artifacts:/var/lib/kaiwu/artifacts
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  gateway-service:
+    build:
+      context: ../kaiwu-gateway-service
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      KAIWU_SYSTEM_SERVICE_URI: http://system-service:8080
+      REDIS_HOST: ${KAIWU_REDIS_HOST:-redis}
+      REDIS_PORT: ${KAIWU_REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${KAIWU_REDIS_PASSWORD:?KAIWU_REDIS_PASSWORD is required}
+      KAIWU_ACCESS_PUBLIC_KEY: ${KAIWU_ACCESS_PUBLIC_KEY:?KAIWU_ACCESS_PUBLIC_KEY is required}
+      KAIWU_CONTEXT_PRIVATE_KEY: ${KAIWU_CONTEXT_PRIVATE_KEY:?KAIWU_CONTEXT_PRIVATE_KEY is required}
+      KAIWU_GATEWAY_INTERNAL_TOKEN: ${KAIWU_GATEWAY_INTERNAL_TOKEN:?KAIWU_GATEWAY_INTERNAL_TOKEN is required}
+      # 业务项目仍逐条显式接入；空目录不增加任何路由，错误文件会使 Gateway 启动失败。
+      KAIWU_GATEWAY_MANAGED_ROUTES_DIR: /etc/kaiwu/gateway-routes
+      SPRING_CLOUD_NACOS_DISCOVERY_ENABLED: "false"
+      SPRING_CLOUD_NACOS_CONFIG_ENABLED: "false"
+    volumes:
+      - ./routes.managed.d:/etc/kaiwu/gateway-routes:ro
+    ports:
+      - "127.0.0.1:8088:8088"
+    depends_on:
+      - system-service
+
+  system-web:
+    build:
+      context: ../kaiwu-system-web
+      args:
+        NPM_REGISTRY: ${KAIWU_NPM_REGISTRY:-https://registry.npmjs.org/}
+        NPM_STRICT_SSL: ${KAIWU_NPM_STRICT_SSL:-true}
+    ports:
+      - "127.0.0.1:8000:8080"
+    depends_on:
+      - gateway-service
+
+volumes:
+  kaiwu-mysql-data:
+  kaiwu-redis-data:
+  kaiwu-artifacts:

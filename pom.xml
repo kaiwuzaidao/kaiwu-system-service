@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.0.7</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.kaiwuzaidao</groupId>
+    <artifactId>kaiwu-system</artifactId>
+    <version>0.1.0</version>
+    <packaging>pom</packaging>
+    <name>Kaiwu System</name>
+    <description>Kaiwu 平台控制面后端</description>
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <modules>
+        <module>kaiwu-system-api</module>
+        <module>kaiwu-system-domain</module>
+        <module>kaiwu-system-boot</module>
+    </modules>
+
+    <properties>
+        <!-- Spring Boot 4.0.7 管理的 httpcore5 5.3.6 有 2 个 HIGH：CVE-2026-54399
+             （超量请求头导致 DoS）、CVE-2026-54428（超大 HPACK 头导致 DoS）。修复版
+             5.4.3。它由 nacos-client 经 httpclient5 传递引入，本仓没有直接依赖。
+             Spring Boot 升级到自带该版本后可移除本行。 -->
+        <httpcore5.version>5.4.3</httpcore5.version>
+        <java.version>21</java.version>
+        <jackson-2-bom.version>2.21.5</jackson-2-bom.version>
+        <jackson-bom.version>3.1.5</jackson-bom.version>
+        <netty.version>4.2.17.Final</netty.version>
+        <!-- Spring Boot 4.0.7 管理的 11.0.22 有 3 个 CRITICAL：CVE-2026-65182（安全约束
+             绕过）、CVE-2026-65905（DIGEST 认证重放）、CVE-2026-68525（FORM 认证绕过）。
+             修复版 11.0.25。Spring Boot 升级到自带该版本后可移除本行。 -->
+        <tomcat.version>11.0.25</tomcat.version>
+        <spring-cloud.version>2025.1.2</spring-cloud.version>
+        <spring-cloud-alibaba.version>2025.1.0.0</spring-cloud-alibaba.version>
+        <jsqlparser.version>5.2</jsqlparser.version>
+        <mybatis-plus.version>3.5.17</mybatis-plus.version>
+        <archunit.version>1.3.0</archunit.version>
+        <error-prone.version>2.36.0</error-prone.version>
+        <spotless.version>2.46.1</spotless.version>
+        <jjwt.version>0.13.0</jjwt.version>
+        <poi.version>5.5.1</poi.version>
+        <kaiwu-system-starter.version>0.1.0</kaiwu-system-starter.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.alibaba.cloud</groupId>
+                <artifactId>spring-cloud-alibaba-dependencies</artifactId>
+                <version>${spring-cloud-alibaba.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.kaiwuzaidao</groupId>
+                <artifactId>kaiwu-system-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.kaiwuzaidao</groupId>
+                <artifactId>kaiwu-system-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.kaiwuzaidao</groupId>
+                <artifactId>kaiwu-system-starter</artifactId>
+                <version>${kaiwu-system-starter.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <plugins>
+            <!-- ADR 0020：自动格式化是可执行默认值，不作为业务合并阻断条件。 -->
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <version>${spotless.version}</version>
+                <configuration>
+                    <java>
+                        <palantirJavaFormat/>
+                        <removeUnusedImports/>
+                        <trimTrailingWhitespace/>
+                        <endWithNewline/>
+                    </java>
+                </configuration>
+                <executions>
+                    <execution>
+                        <!-- 绑到 validate：格式问题在编译前就报出来，不用等跑完测试。
+                             只绑 check 不绑 apply——CI 里自动改写源码会让构建产物和仓库内容对不上。
+                             本地修复用 mvn spotless:apply。 -->
+                        <id>spotless-check</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!--
+                ErrorProne：编译期抓真实缺陷（字符串用 == 比较、格式化串参数不匹配、
+                误用 Optional、忽略应当检查的返回值等）。只开它自带的 ERROR 级别，
+                不自定义规则集——PMD 那种大而全的规则库需要长期裁剪，噪音会让人学会忽略红灯。
+
+                JDK 21 需要下面那组 compilerArgs 才能让插件访问 javac 内部 API，
+                这是 ErrorProne 官方对 JDK 16+ 的既定要求，不是本项目的特殊处理。
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <!-- -J 前缀的参数只在 fork 模式下有效：不 fork 时 javac 在 Maven 进程内运行，
+                         这些参数会被直接拒绝，表现为「An unknown compilation problem occurred」。 -->
+                    <fork>true</fork>
+                    <compilerArgs>
+                        <arg>-XDcompilePolicy=simple</arg>
+                        <arg>--should-stop=ifError=FLOW</arg>
+                        <arg>-Xplugin:ErrorProne</arg>
+                        <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</arg>
+                        <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED</arg>
+                        <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED</arg>
+                        <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED</arg>
+                        <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED</arg>
+                        <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED</arg>
+                        <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED</arg>
+                        <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED</arg>
+                        <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED</arg>
+                        <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED</arg>
+                    </compilerArgs>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>com.google.errorprone</groupId>
+                            <artifactId>error_prone_core</artifactId>
+                            <version>${error-prone.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Kaiwu Development"
+  short_description: "Bootstrap, run, understand, and develop Kaiwu safely"
+  default_prompt: "Use $kaiwu-development to initialize the Kaiwu workspace and start developing the requested feature."

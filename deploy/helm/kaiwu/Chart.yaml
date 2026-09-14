@@ -1,0 +1,10 @@
+apiVersion: v2
+name: kaiwu
+description: Kaiwu platform control plane
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+maintainers:
+  - name: Kaiwu maintainers
+annotations:
+  artifacthub.io/license: Apache-2.0

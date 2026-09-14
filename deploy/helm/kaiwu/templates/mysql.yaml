@@ -1,0 +1,106 @@
+{{- if .Values.database.embedded }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kaiwu.fullname" . }}-mysql
+  labels:
+    {{- include "kaiwu.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mysql
+spec:
+  clusterIP: None
+  selector:
+    {{- include "kaiwu.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: mysql
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: mysql
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "kaiwu.fullname" . }}-mysql
+  labels:
+    {{- include "kaiwu.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mysql
+spec:
+  serviceName: {{ include "kaiwu.fullname" . }}-mysql
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "kaiwu.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: mysql
+  template:
+    metadata:
+      labels:
+        {{- include "kaiwu.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: mysql
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 999
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: mysql
+          image: {{ include "kaiwu.image" .Values.images.mysql }}
+          imagePullPolicy: {{ .Values.images.mysql.pullPolicy }}
+          args:
+            - --character-set-server=utf8mb4
+            - --collation-server=utf8mb4_0900_ai_ci
+          ports:
+            - name: mysql
+              containerPort: 3306
+          env:
+            - name: MYSQL_DATABASE
+              value: {{ .Values.database.name | quote }}
+            - name: MYSQL_USER
+              value: {{ .Values.database.username | quote }}
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kaiwu.secretName" . }}
+                  key: {{ .Values.runtimeSecret.keys.databasePassword }}
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kaiwu.secretName" . }}
+                  key: {{ .Values.runtimeSecret.keys.mysqlRootPassword }}
+          startupProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -uroot -p"$MYSQL_ROOT_PASSWORD" --silent
+            failureThreshold: 60
+            periodSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -uroot -p"$MYSQL_ROOT_PASSWORD" --silent
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -uroot -p"$MYSQL_ROOT_PASSWORD" --silent
+            periodSeconds: 20
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with .Values.database.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.database.storageSize }}
+{{- end }}

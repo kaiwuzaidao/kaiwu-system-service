@@ -1,0 +1,14 @@
+# 单台服务器部署覆盖层。密钥仍由调用者通过 --env-file 或进程环境注入。
+# 业务项目路由由基础 Compose 挂载 routes.managed.d/；任一文件无效时 Gateway 会启动失败。
+# 本覆盖层只补服务器重启策略，不改变应用契约。
+services:
+  mysql:
+    restart: unless-stopped
+  redis:
+    restart: unless-stopped
+  system-service:
+    restart: unless-stopped
+  gateway-service:
+    restart: unless-stopped
+  system-web:
+    restart: unless-stopped

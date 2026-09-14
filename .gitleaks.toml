@@ -1,0 +1,16 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Generated build outputs are recreated from scanned source files."
+paths = [
+  '''(^|/)(target|dist|node_modules)/''',
+]
+# generic-api-key 会把"标识符名里带 key"的普通字符串当成凭据。这里只放行具体取值，
+# 不放宽规则本身，也不按文件路径豁免——换个文件出现真凭据仍然会被拦下。
+#   api.i18n.keyNotFound  国际化错误码（ProjectService / MetadataService 抛异常时使用）
+#   item.label_i18n_key   数据库列名（I18nMapper 的 SQL 连接条件）
+regexes = [
+  '''^api\.i18n\.keyNotFound$''',
+  '''^item\.label_i18n_key$''',
+]

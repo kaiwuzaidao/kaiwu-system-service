@@ -1,0 +1,69 @@
+# Nacos Data ID：kaiwu-system-service-<profile>.yml    Group：DEFAULT_GROUP    类型：yaml
+#
+# 从 application-local.yml 推导而来，保留了同样的 ${占位符}。占位符由进程环境注入，
+# 因此 RSA 私钥、数据库口令、加密密钥都不会写进 Nacos。
+# 只想固化地址、超时这类非机密项时，直接把对应行改成字面值即可。
+#
+# 发布前确认：数据库与 Redis 地址已改成你自己的；bootstrap-admin-password 只对
+# 空库首次启动有效。
+
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  datasource:
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:kaiwu_platform}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: ${DB_USER:kaiwu}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+
+kaiwu:
+  gateway-access:
+    # Gateway 查询项目入口授权的内部凭据；未配置时该端点直接拒绝。
+    # 必须与 gateway 那份配置里的 kaiwu.gateway.project-access.internal-token 相同。
+    internal-token: ${KAIWU_GATEWAY_INTERNAL_TOKEN:}
+  notification:
+    delivery-token: ${KAIWU_NOTIFICATION_DELIVERY_TOKEN:}
+  metadata:
+    encryption-key: ${KAIWU_CONFIG_ENCRYPTION_KEY:}
+  ai-provider:
+    # 出站默认关闭：两项必须同时配置，缺任一都拒绝连接。
+    allowed-hosts: ${KAIWU_AI_PROVIDER_ALLOWED_HOSTS:}
+    egress-proxy-uri: ${KAIWU_AI_PROVIDER_EGRESS_PROXY_URI:}
+  codegen:
+    artifact-root: ${KAIWU_ARTIFACT_ROOT:/var/lib/kaiwu/artifacts}
+    gitlab:
+      base-url: ${KAIWU_GITLAB_URL:}
+      token: ${KAIWU_GITLAB_TOKEN:}
+  auth:
+    access-private-key: ${KAIWU_ACCESS_PRIVATE_KEY}
+    bootstrap-admin-password: ${KAIWU_BOOTSTRAP_ADMIN_PASSWORD}
+    access-ttl-seconds: ${KAIWU_ACCESS_TTL_SECONDS:900}
+    refresh-ttl-seconds: ${KAIWU_REFRESH_TTL_SECONDS:604800}
+    # 走 HTTPS 时保持默认 true。仅在确认入口是纯 HTTP 时才改成 false，
+    # 那会让刷新令牌以明文 Cookie 传输。
+    refresh-cookie-secure: ${KAIWU_REFRESH_COOKIE_SECURE:true}
+  starter:
+    enabled: true
+    context-public-key: ${KAIWU_CONTEXT_PUBLIC_KEY}
+    audience: kaiwu-system-service
+    include-paths:
+      - /api/**
+    exclude-paths:
+      - /api/hello
+      - /api/auth/login
+      - /api/auth/refresh
+      - /api/public/i18n/catalog
+      # 站内信投递是服务端到服务端的单向调用，不携带 Gateway Context；
+      # Gateway 的 InternalEndpointBlockFilter 已阻断外部访问 /internal。
+      - /api/internal/**
+      - /actuator/health
+      - /actuator/health/**
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml

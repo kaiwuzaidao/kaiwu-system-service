@@ -1,0 +1,13 @@
+{{- if .Values.migration.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kaiwu.fullname" . }}-migrations
+  labels:
+    {{- include "kaiwu.labels" . | nindent 4 }}
+data:
+  {{- range $path, $_ := .Files.Glob "files/migrations/*.sql" }}
+  {{ base $path }}: |-
+{{ $.Files.Get $path | nindent 4 }}
+  {{- end }}
+{{- end }}

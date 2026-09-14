@@ -1,0 +1,226 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kaiwu.fullname" . }}-system
+  labels:
+    {{- include "kaiwu.labels" . | nindent 4 }}
+    app.kubernetes.io/component: system
+spec:
+  replicas: {{ .Values.system.replicaCount }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "kaiwu.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: system
+  template:
+    metadata:
+      labels:
+        {{- include "kaiwu.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: system
+      {{- if .Values.migration.enabled }}
+      annotations:
+        checksum/migrations: {{ include (print $.Template.BasePath "/migrations-configmap.yaml") . | sha256sum }}
+      {{- end }}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      {{- if .Values.migration.enabled }}
+      initContainers:
+        - name: flyway
+          image: {{ include "kaiwu.image" .Values.images.flyway }}
+          imagePullPolicy: {{ .Values.images.flyway.pullPolicy }}
+          args:
+            - migrate
+          env:
+            - name: FLYWAY_URL
+              value: "jdbc:mysql://{{ include "kaiwu.databaseHost" . }}:{{ .Values.database.port }}/{{ .Values.database.name }}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true"
+            - name: FLYWAY_USER
+              value: {{ .Values.database.username | quote }}
+            - name: FLYWAY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kaiwu.secretName" . }}
+                  key: {{ .Values.runtimeSecret.keys.databasePassword }}
+            - name: FLYWAY_LOCATIONS
+              value: filesystem:/flyway/sql
+            - name: FLYWAY_DEFAULT_SCHEMA
+              value: {{ .Values.database.name | quote }}
+            - name: FLYWAY_TABLE
+              value: flyway_schema_history
+            - name: FLYWAY_BASELINE_ON_MIGRATE
+              value: "false"
+            - name: FLYWAY_CONNECT_RETRIES
+              value: {{ .Values.migration.connectRetries | quote }}
+          volumeMounts:
+            - name: migrations
+              mountPath: /flyway/sql
+              readOnly: true
+            - name: flyway-tmp
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+      {{- end }}
+      containers:
+        - name: system
+          image: {{ include "kaiwu.image" .Values.images.system }}
+          imagePullPolicy: {{ .Values.images.system.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: local
+            - name: SPRING_CLOUD_NACOS_CONFIG_ENABLED
+              value: "false"
+            # 被调用方：启用 discovery 时必须注册自己，否则 lb:// 无实例可解析（ADR 0024 §6）。
+            - name: SPRING_CLOUD_NACOS_DISCOVERY_ENABLED
+              value: {{ .Values.serviceAddressing.discoveryEnabled | quote }}
+            - name: DB_HOST
+              value: {{ include "kaiwu.databaseHost" . | quote }}
+            - name: DB_PORT
+              value: {{ .Values.database.port | quote }}
+            - name: DB_NAME
+              value: {{ .Values.database.name | quote }}
+            - name: DB_USER
+              value: {{ .Values.database.username | quote }}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kaiwu.secretName" . }}
+                  key: {{ .Values.runtimeSecret.keys.databasePassword }}
+            - name: REDIS_HOST
+              value: {{ include "kaiwu.redisHost" . | quote }}
+            - name: REDIS_PORT
+              value: {{ .Values.redis.port | quote }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kaiwu.secretName" . }}
+                  key: {{ .Values.runtimeSecret.keys.redisPassword }}
+            - name: KAIWU_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kaiwu.secretName" . }}
+                  key: {{ .Values.runtimeSecret.keys.bootstrapAdminPassword }}
+            {{- if .Values.aiProvider.allowedHosts }}
+            # AI 出站管控（AiProviderNetworkPolicy）。两项缺一不可：
+            # 白名单限定目标主机，代理是唯一出口且负责 DNS 解析与私网拒绝。
+            # 未配置时策略 fail-closed，AI 相关功能一律拒绝。
+            - name: KAIWU_AI_PROVIDER_ALLOWED_HOSTS
+              value: {{ .Values.aiProvider.allowedHosts | quote }}
+            {{- end }}
+            {{- $proxyUri := .Values.aiProvider.egressProxyUri }}
+            {{- if and .Values.aiProvider.egressProxy.enabled (not $proxyUri) }}
+            {{- $proxyUri = printf "http://%s-ai-egress:3128" (include "kaiwu.fullname" .) }}
+            {{- end }}
+            {{- if $proxyUri }}
+            - name: KAIWU_AI_PROVIDER_EGRESS_PROXY_URI
+              value: {{ $proxyUri | quote }}
+            {{- end }}
+            - name: KAIWU_CONFIG_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kaiwu.secretName" . }}
+                  key: {{ .Values.runtimeSecret.keys.configEncryptionKey }}
+            - name: KAIWU_ACCESS_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kaiwu.secretName" . }}
+                  key: {{ .Values.runtimeSecret.keys.accessPrivateKey }}
+            - name: KAIWU_CONTEXT_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kaiwu.secretName" . }}
+                  key: {{ .Values.runtimeSecret.keys.contextPublicKey }}
+            - name: KAIWU_NOTIFICATION_DELIVERY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kaiwu.secretName" . }}
+                  key: {{ .Values.runtimeSecret.keys.notificationDeliveryToken }}
+            - name: KAIWU_GATEWAY_INTERNAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kaiwu.secretName" . }}
+                  key: {{ .Values.runtimeSecret.keys.gatewayInternalToken }}
+            - name: KAIWU_ACCESS_TTL_SECONDS
+              value: {{ .Values.system.accessTtlSeconds | quote }}
+            - name: KAIWU_REFRESH_TTL_SECONDS
+              value: {{ .Values.system.refreshTtlSeconds | quote }}
+            - name: KAIWU_ARTIFACT_ROOT
+              value: /var/lib/kaiwu/artifacts
+            {{- with .Values.serviceAddressing.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.system.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: artifacts
+              mountPath: /var/lib/kaiwu/artifacts
+            - name: system-tmp
+              mountPath: /tmp
+      volumes:
+        {{- if .Values.migration.enabled }}
+        - name: migrations
+          configMap:
+            name: {{ include "kaiwu.fullname" . }}-migrations
+        - name: flyway-tmp
+          emptyDir: {}
+        {{- end }}
+        - name: system-tmp
+          emptyDir: {}
+        - name: artifacts
+          {{- if .Values.system.artifactPersistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ default (printf "%s-artifacts" (include "kaiwu.fullname" .)) .Values.system.artifactPersistence.existingClaim }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

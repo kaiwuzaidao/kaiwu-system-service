@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: kaiwu-system-service
+
+      # 本仓依赖 com.kaiwuzaidao:kaiwu-system-starter，而 starter 还没发到
+      # Maven Central，公网拉不到。所以先 checkout 并 install 它，再构建本仓。
+      # starter 上 Central 之后这两步可以删掉。
+      - uses: actions/checkout@v4
+        with:
+          repository: kaiwuzaidao/kaiwu-system-starter
+          path: kaiwu-system-starter
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Install starter into the local repository
+        working-directory: kaiwu-system-starter
+        # 境外 runner 直连 Maven Central，不走仓库内的阿里云镜像配置。
+        run: mvn -B -DskipTests install
+
+      - name: Verify
+        working-directory: kaiwu-system-service
+        run: mvn -B verify
