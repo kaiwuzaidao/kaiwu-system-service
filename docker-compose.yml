@@ -146,7 +146,9 @@ services:
     volumes:
       - ./routes.managed.d:/etc/kaiwu/gateway-routes:ro
     ports:
-      - "127.0.0.1:8088:8088"
+      # 同机跑第二份实例时用 KAIWU_GATEWAY_PORT 错开；只隔离 COMPOSE_PROJECT_NAME
+      # 不够，端口仍会撞。默认值不变。
+      - "127.0.0.1:${KAIWU_GATEWAY_PORT:-8088}:8088"
     depends_on:
       - system-service
 
@@ -157,7 +159,7 @@ services:
         NPM_REGISTRY: ${KAIWU_NPM_REGISTRY:-https://registry.npmjs.org/}
         NPM_STRICT_SSL: ${KAIWU_NPM_STRICT_SSL:-true}
     ports:
-      - "127.0.0.1:8000:8080"
+      - "127.0.0.1:${KAIWU_WEB_PORT:-8000}:8080"
     depends_on:
       - gateway-service
 

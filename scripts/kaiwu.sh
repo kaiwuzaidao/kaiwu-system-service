@@ -353,7 +353,7 @@ admin_password_already_changed() {
 show_credentials() {
   load_runtime_env
   echo
-  echo "Kaiwu 地址：http://127.0.0.1:8000"
+  echo "Kaiwu 地址：http://127.0.0.1:${KAIWU_WEB_PORT:-8000}"
   echo "用户名：admin"
   # 库里 admin 已经改过密码时打印自举密码是有害的：它一定登不进去，
   # 而使用者会拿着它反复尝试，把「我忘了密码」误判成「系统坏了」。
@@ -371,9 +371,9 @@ wait_until_ready() {
   local _attempt
   for _attempt in {1..120}; do
     if curl --noproxy '*' --fail --silent \
-        http://127.0.0.1:8088/actuator/health >/dev/null 2>&1 \
+        "http://127.0.0.1:${KAIWU_GATEWAY_PORT:-8088}/actuator/health" >/dev/null 2>&1 \
         && curl --noproxy '*' --fail --silent \
-        http://127.0.0.1:8000/ >/dev/null 2>&1; then
+        "http://127.0.0.1:${KAIWU_WEB_PORT:-8000}/" >/dev/null 2>&1; then
       echo
       echo "✓ MySQL 与 Redis 已就绪"
       echo "✓ System 与 Gateway 已就绪"
@@ -501,7 +501,14 @@ case "$command_name" in
   logs)
     require_tool docker
     prepare_compose_control_env
-    compose logs --follow
+    # 默认打印最近日志后退出，不跟随。AGENTS.md 把本命令列为排查第二步，
+    # 而 --follow 永远不返回——人可以 Ctrl-C，AI 编码工具会一直等下去。
+    # 要跟随就显式加 -f / --follow，其余参数原样透传给 docker compose logs。
+    if [[ $# -gt 0 ]]; then
+      compose logs "$@"
+    else
+      compose logs --tail 200
+    fi
     ;;
   down)
     require_tool docker
@@ -579,7 +586,7 @@ case "$command_name" in
     compose restart gateway-service
     for _attempt in {1..60}; do
       if curl --noproxy '*' --fail --silent \
-          http://127.0.0.1:8088/actuator/health >/dev/null 2>&1; then
+          "http://127.0.0.1:${KAIWU_GATEWAY_PORT:-8088}/actuator/health" >/dev/null 2>&1; then
         echo "Gateway 已重新载入 routes.managed.d/。"
         exit 0
       fi
