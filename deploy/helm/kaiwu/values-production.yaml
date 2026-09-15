@@ -1,15 +1,17 @@
+# 镜像 tag 与 GitHub Actions 的 docker/metadata-action 产出保持一致：
+# type=semver,pattern={{version}} 会去掉前导 v，git tag v0.1.0 推出来的镜像是 :0.1.0。
 images:
   system:
     repository: ghcr.io/kaiwuzaidao/kaiwu-system-service
-    tag: v0.1.0
+    tag: 0.1.0
     pullPolicy: IfNotPresent
   gateway:
     repository: ghcr.io/kaiwuzaidao/kaiwu-gateway-service
-    tag: v0.1.0
+    tag: 0.1.0
     pullPolicy: IfNotPresent
   web:
     repository: ghcr.io/kaiwuzaidao/kaiwu-system-web
-    tag: v0.1.0
+    tag: 0.1.0
     pullPolicy: IfNotPresent
 
 runtimeSecret:
