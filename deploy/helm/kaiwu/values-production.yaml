@@ -32,6 +32,9 @@ redis:
 system:
   # 当前制品目录使用 RWO PVC，默认保持单副本。接入共享对象存储后再扩容。
   replicaCount: 1
+  # 本文件的 ingress 开着 TLS，刷新令牌 Cookie 必须带 Secure。
+  # 若你把 TLS 终结放在集群外的 LB 上、Ingress 这里是纯 HTTP，仍应保持 true。
+  refreshCookieSecure: true
   artifactPersistence:
     enabled: true
     storageClass: standard

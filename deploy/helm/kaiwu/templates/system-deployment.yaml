@@ -160,6 +160,10 @@ spec:
               value: {{ .Values.system.accessTtlSeconds | quote }}
             - name: KAIWU_REFRESH_TTL_SECONDS
               value: {{ .Values.system.refreshTtlSeconds | quote }}
+            # 容器固定跑 local profile，而该 profile 的 refresh-cookie-secure
+            # 默认 false（本地 HTTP）。HTTPS 入口必须在这里覆盖成 true。
+            - name: KAIWU_REFRESH_COOKIE_SECURE
+              value: {{ .Values.system.refreshCookieSecure | quote }}
             - name: KAIWU_ARTIFACT_ROOT
               value: /var/lib/kaiwu/artifacts
             {{- with .Values.serviceAddressing.extraEnv }}

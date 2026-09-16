@@ -38,8 +38,11 @@ kaiwu:
     bootstrap-admin-password: ${KAIWU_BOOTSTRAP_ADMIN_PASSWORD}
     access-ttl-seconds: ${KAIWU_ACCESS_TTL_SECONDS:900}
     refresh-ttl-seconds: ${KAIWU_REFRESH_TTL_SECONDS:604800}
-    # local profile 使用 HTTP；受管 HTTPS 环境保持默认 true。
-    refresh-cookie-secure: false
+    # 默认 false 是因为本地与默认 compose/NodePort 安装走 HTTP，带 Secure 的
+    # Cookie 浏览器不会回传。入口是 HTTPS 时必须置为 true，否则 7 天有效期的
+    # 刷新令牌会在对同域的明文 HTTP 请求里被带出去。Helm chart 通过
+    # system.refreshCookieSecure 注入该变量。
+    refresh-cookie-secure: ${KAIWU_REFRESH_COOKIE_SECURE:false}
   starter:
     enabled: true
     context-public-key: ${KAIWU_CONTEXT_PUBLIC_KEY}

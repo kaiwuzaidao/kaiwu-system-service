@@ -123,6 +123,10 @@ system:
   replicaCount: 1
   accessTtlSeconds: 900
   refreshTtlSeconds: 604800
+  # 刷新令牌 Cookie 是否带 Secure。默认 false 与本 values 的 ingress.enabled=false
+  # 一致（走 HTTP NodePort，带 Secure 浏览器不回传）。入口是 HTTPS 就必须置 true，
+  # values-production.yaml 已经这么设。
+  refreshCookieSecure: false
   artifactPersistence:
     enabled: true
     existingClaim: ""
@@ -171,26 +175,10 @@ web:
             proxy_set_header X-Forwarded-Proto $scheme;
         }
 
-        # Reimburse 业务 API：按 KUBERNETES.md 5.3，/{projectCode}-api/ 必须经平台
-        # Gateway，不得绕过它直连业务服务（Gateway 负责项目入口授权，ADR 0022）。
-        location ^~ /reimburse-api/ {
-            proxy_pass http://${KAIWU_GATEWAY_UPSTREAM};
-            proxy_http_version 1.1;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-        }
-
-        # Reimburse sub-app: ^~ stops regex from stealing .js/.css requests
-        location ^~ /apps/reimburse/ {
-            proxy_pass http://kaiwu-reimburse-web/apps/reimburse/;
-            proxy_http_version 1.1;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-        }
+        # 这里只放平台自身的路由。接入业务子应用时在自己的 values 里覆盖
+        # web.nginxTemplate 追加 location，不要写进 chart 默认值——nginx 在启动时
+        # 解析 proxy_pass 的字面主机名，集群里没有该 Service 时整个 web 容器
+        # 会以 "host not found in upstream" 直接退出，而不是只让那一条路由 404。
 
         location ~* \.(js|css|woff2?|png|jpg|jpeg|gif|svg|ico)$ {
             expires 1y;
