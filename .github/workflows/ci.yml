@@ -17,9 +17,10 @@ jobs:
         with:
           path: kaiwu-system-service
 
-      # 本仓依赖 com.kaiwuzaidao:kaiwu-system-starter，而 starter 还没发到
-      # Maven Central，公网拉不到。所以先 checkout 并 install 它，再构建本仓。
-      # starter 上 Central 之后这两步可以删掉。
+      # starter 已于 2026-09-16 发布到 Maven Central（0.1.0），本仓其实可以直接
+      # 从 Central 解析。这里仍然 checkout 并 install，是为了让 CI 构建的是
+      # starter 仓当前 main 的代码，而不是已发布的快照——跨仓改动能在合并前就暴露。
+      # 同时 check-starter-version-published.sh 依赖它做离线版本比对。
       - uses: actions/checkout@v4
         with:
           repository: kaiwuzaidao/kaiwu-system-starter
@@ -35,6 +36,10 @@ jobs:
         working-directory: kaiwu-system-starter
         # 境外 runner 直连 Maven Central，不走仓库内的阿里云镜像配置。
         run: mvn -B -DskipTests install
+
+      - name: Check starter version consistency
+        working-directory: kaiwu-system-service
+        run: sh scripts/tests/check-starter-version-published.sh
 
       - name: Verify
         working-directory: kaiwu-system-service
