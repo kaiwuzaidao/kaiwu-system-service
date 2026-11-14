@@ -36,6 +36,14 @@
             <groupId>com.kaiwuzaidao</groupId>
             <artifactId>kaiwu-system-starter</artifactId>
         </dependency>
+<#if dataScoped>
+        <!-- 表同时含 owner_user_id 与 owner_dept_id，按行级数据范围生成（ADR 0044）；该版本需已发布到项目 Maven 仓库。 -->
+        <dependency>
+            <groupId>com.kaiwuzaidao</groupId>
+            <artifactId>kaiwu-data-scope</artifactId>
+            <version>${r"${kaiwu-system-starter.version}"}</version>
+        </dependency>
+</#if>
         <!-- 测试基线依赖：JUnit 5、Mockito、AssertJ 与 MockMvc 都来自这一个 starter。 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

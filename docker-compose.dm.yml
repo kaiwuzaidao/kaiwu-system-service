@@ -1,0 +1,40 @@
+# 达梦使用部署方已准备好的 DM8 实例；不创建或管理数据库容器。
+services:
+  mysql:
+    profiles: ["bundled-db"]
+
+  schema-compat-check:
+    image: ${KAIWU_IMAGE_REGISTRY:-ghcr.io/kaiwuzaidao}/kaiwu-dm-migrator:${KAIWU_IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: docker/dm-migrate/Dockerfile
+    entrypoint: !reset null
+    command: ["check"]
+    environment:
+      DB_JDBC_URL: ${KAIWU_DB_JDBC_URL:?KAIWU_DB_JDBC_URL is required}
+      DB_NAME: ${KAIWU_DB_NAME:?KAIWU_DB_NAME is required}
+      DB_USER: ${KAIWU_DB_USER:?KAIWU_DB_USER is required}
+      DB_PASSWORD: ${KAIWU_DB_PASSWORD:?KAIWU_DB_PASSWORD is required}
+    volumes: !override
+      - ./sql/dm:/migrations:ro
+    depends_on: !reset []
+
+  db-migrate:
+    image: ${KAIWU_IMAGE_REGISTRY:-ghcr.io/kaiwuzaidao}/kaiwu-dm-migrator:${KAIWU_IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: docker/dm-migrate/Dockerfile
+    command: ["migrate"]
+    environment: !override
+      DB_JDBC_URL: ${KAIWU_DB_JDBC_URL:?KAIWU_DB_JDBC_URL is required}
+      DB_NAME: ${KAIWU_DB_NAME:?KAIWU_DB_NAME is required}
+      DB_USER: ${KAIWU_DB_USER:?KAIWU_DB_USER is required}
+      DB_PASSWORD: ${KAIWU_DB_PASSWORD:?KAIWU_DB_PASSWORD is required}
+    volumes: !override
+      - ./sql/dm:/migrations:ro
+
+  system-service:
+    environment:
+      DB_JDBC_URL: ${KAIWU_DB_JDBC_URL:?KAIWU_DB_JDBC_URL is required}
+      DB_DRIVER: dm.jdbc.driver.DmDriver
+      DB_PASSWORD: ${KAIWU_DB_PASSWORD:?KAIWU_DB_PASSWORD is required}

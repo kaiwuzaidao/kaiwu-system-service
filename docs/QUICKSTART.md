@@ -48,6 +48,11 @@ openssl version
 
 ### 一个入口启动完整平台
 
+第一次 `init` / `up` 会询问平台数据库：MySQL 或达梦 DM8。
+体验可选择 MySQL 自动启动本地实例；选择达梦时输入已有实例的连接信息。
+无交互安装需显式设置 `KAIWU_DB_TYPE=mysql` 或 `KAIWU_DB_TYPE=dm`。
+选择会保存，后续启动直接复用；完整前置条件见[平台数据库选择](DATABASES.md)。
+
 从 `kaiwu` 开源主页进入，入口会在被忽略的 `workspace/` 中准备四个运行仓：
 
 ```bash
@@ -57,8 +62,16 @@ cd kaiwu
 ./kaiwu up
 ```
 
-第一次会下载镜像和依赖。脚本会自动生成本地密钥、执行 Flyway，并启动 MySQL、Redis、
-System、Gateway 和 Web。
+脚本会自动生成本地密钥、执行 Flyway，并启动 MySQL、Redis、System、Gateway 和 Web。
+
+使用 Colima 时，将源码克隆到虚拟机已共享的目录。容器需要读取源码中的绑定挂载配置文件。
+
+- **Release 版本**直接拉取发布好的 System、Gateway、Web 镜像（`ghcr.io/kaiwuzaidao/kaiwu-*:<版本>`），
+  不在本机构建，首次启动只需几分钟；拉取失败时自动改为本机构建。
+- **源码开发态**（各仓默认分支）没有对应镜像，会在本机构建，第一次需要下载构建依赖，耗时较长。
+- 想在 Release 版本上也本机构建：`./kaiwu up --build`。
+- 访问 GHCR 受限时，可把 `KAIWU_IMAGE_REGISTRY` 设为可访问的镜像仓库或代理（同步了这三个镜像即可），
+  例如 `KAIWU_IMAGE_REGISTRY=registry.example.com/kaiwuzaidao ./kaiwu up`。
 
 Release 用户会自动获得四个运行仓的同名 tag；源码开发态使用各仓默认分支。Fork 或自建 Git 服务可以在
 启动前设置 `KAIWU_REPOSITORY_BASE_URL`，用 `./kaiwu repositories` 预览入口地址和版本策略。
@@ -102,26 +115,14 @@ MySQL、Redis 应为 `healthy`，Gateway 应返回 `UP`。System 的 `8080` 是�
 
 项目编码会进入仓库名、API 前缀、镜像名和 Kubernetes Service 名，创建后不要随意修改。
 
-### 第一次选择「基础空脚手架」
+### 生成基础空脚手架
 
-它不需要配置模型，可以最快验证 Kaiwu 的核心价值：治理边界、独立工程和后续交付。
-
-| 方式 | 什么时候选择 |
-| --- | --- |
-| **基础空脚手架** | 第一次体验，或已有设计准备自己开发 |
-| AI 生成项目 | 希望根据业务描述生成数据模型和第一批 CRUD |
+项目工厂会生成前后端基础工程，包含权限接入、数据库迁移、CI 和部署文件。
+生成完成后，在业务仓库中使用 IDE 或 AI Coding 工具开发数据模型与业务功能。
+当前生成能力见 [项目工厂](PROJECT_FACTORY.md)。
 
 > [!IMPORTANT]
-> 一个项目只有一次初始生成。`SUCCESS` 后，平台不再重新生成或覆盖业务仓库。
-
-<details>
-<summary>AI 在这里到底做什么？</summary>
-
-AI 不是创建项目的前置条件。选择 AI 生成时，它只负责形成受校验的业务蓝图；源码、SQL、权限、
-路由、Docker 和 CI 仍由版本化模板确定性生成。
-
-生成完成后，团队可以换回自己熟悉的 AI Coding 工具继续开发。
-</details>
+> 一个项目只有一次初始生成。`SUCCESS` 后，平台保留制品供下载，业务源码由项目团队维护。
 
 > **这一站完成了：** 项目工厂中的生成任务变为 `SUCCESS`。
 
@@ -129,7 +130,7 @@ AI 不是创建项目的前置条件。选择 AI 生成时，它只负责形成�
 
 ## 03｜取走属于你的两个仓库
 
-生成成功后，可以下载两个 ZIP，也可以让平台向两个空 GitLab 仓库各执行一次初始推送。
+生成成功后，从生成任务下载后端与前端两个 ZIP，分别解压为下面的业务仓目录。后续由项目团队提交到自己的 Git 服务。
 
 建议放成：
 
@@ -163,6 +164,28 @@ test -f <工作目录>/business/order-center-web/deploy/k8s/ingress.yaml
 ---
 
 ## 04｜在本机运行业务项目
+
+### 最快：一条命令在 Docker 里跑起来
+
+只想先看到效果、暂时不改代码时，保持 `./kaiwu up` 启动的平台不动，执行：
+
+```bash
+cd <工作目录>/kaiwu
+./kaiwu project-up ../business/order-center-service
+```
+
+如果平台启动时设置了独立的 `COMPOSE_PROJECT_NAME`，运行 `project-up` 时同时设置
+`KAIWU_PLATFORM_NETWORK=<平台项目名>_default`，让业务容器接入对应的平台网络。
+
+它只使用业务仓自带的 `deploy/server` 文件：构建并启动前后端容器、登记业务仓的 Gateway
+显式路由、把前端接到平台同源路径 `/apps/order-center/`，入口为空时顺便登记到项目管理。
+业务库口令由启动器自动生成并保存在本机。完成后直接跳到「05」。
+
+- 前端仓不在后端仓旁边时，把目录作为第二个参数传入。
+- 平台重新执行 `./kaiwu up` 会轮换密钥，届时再执行一次 `project-up`。
+- 停止：`./kaiwu project-down order-center`（保留业务数据）。
+
+### 需要改代码、打断点：开发模式
 
 本地联调时，MySQL 和 Redis 留在 Docker；平台应用切换为本机进程，这样 Gateway 才能访问
 业务后端的 `127.0.0.1`。
@@ -238,7 +261,8 @@ bash scripts/dev.sh
 
 ## 05｜从 Kaiwu 工作台进入项目
 
-回到「项目管理 → 编辑项目」，设置：
+用 `project-up` 启动时入口已经登记好（`/apps/order-center/`），直接回到工作台点击「进入」。
+开发模式下回到「项目管理 → 编辑项目」，设置：
 
 | 配置 | 本地值 |
 | --- | --- |
@@ -262,16 +286,19 @@ bash scripts/dev.sh
 基础空脚手架还没有业务菜单，可以先跳过菜单验证。
 
 <details>
-<summary>AI 生成项目或后续新增模块，怎样处理菜单？</summary>
+<summary>后续新增模块，怎样处理菜单、字典和配置？</summary>
 
-AI 初始生成的菜单已由项目工厂登记。后续在业务仓新增模块并更新 `sql/menu.sql` 后，可以执行：
+初始生成的菜单已由项目工厂登记。后续在业务仓新增模块，把菜单与按钮写进 `kaiwu/menus.yml`
+（字典、配置分别写进 `kaiwu/dicts.yml`、`kaiwu/configs.yml`），然后执行：
 
 ```bash
 cd <工作目录>/kaiwu
-./kaiwu import-project-menu ../business/order-center-service/sql/menu.sql
+./kaiwu project sync ../business/order-center-service            # 先看计划
+./kaiwu project sync ../business/order-center-service --apply    # 确认后写入
+./kaiwu project entry order-center 订单管理 http://kaiwu-order-center-service:8080  # 登记已部署后台
 ```
 
-然后在「项目管理 → 角色与菜单」中分配权限。`menu.sql` 属于平台库，不能导入业务数据库。
+只新增、不删除。然后在「项目管理 → 角色与菜单」中分配权限。这些清单属于平台，不能写进业务数据库。
 </details>
 
 ---
@@ -318,7 +345,7 @@ cd <工作目录>/kaiwu
 | 现象 | 先检查什么 |
 | --- | --- |
 | 平台起不来 | `./kaiwu logs` |
-| `8000` 或 `8088` 被占用 | 停止旧进程，不要把 System `8080` 当浏览器入口 |
+| `8000` 或 `8088` 被占用 | 为本次安装同时指定独立的 `COMPOSE_PROJECT_NAME`、`KAIWU_WEB_PORT` 和 `KAIWU_GATEWAY_PORT` |
 | 业务后端缺 Context 公钥 | 重新执行 `kaiwu.sh context-public-key` 并重启后端 |
 | 业务健康但 API 返回 401 | 请求是否绕过 Gateway 直连了业务端口 |
 | 业务 API 返回 404 | Route 文件位置、路径前缀和 Gateway 状态 |

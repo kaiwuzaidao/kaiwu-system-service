@@ -1,4 +1,4 @@
-package ${basePackage}.module.${moduleCode}.dto;
+package ${basePackage}.module.${moduleCode}.dto.request;
 
 <#list imports as item>import ${item};
 </#list>

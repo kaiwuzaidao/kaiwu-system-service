@@ -23,9 +23,15 @@ class ModuleDependencyArchitectureTest {
     @Test
     void auditNeverDependsOnAuthenticationImplementation() throws IOException {
         List<String> offenders;
-        try (var files = Files.walk(MAIN.resolve("com/kaiwu/module/audit"))) {
+        try (var files = Files.walk(MAIN.resolve("com/kaiwu/module/operation"))) {
             offenders = files.filter(path -> path.toString().endsWith(".java"))
-                    .filter(path -> source(path).contains("com.kaiwu.module.auth"))
+                    .filter(path -> path.getFileName().toString().startsWith("Audit")
+                            || path.getFileName().toString().startsWith("LogCenter")
+                            || path.getFileName().toString().equals("FieldChange.java")
+                            || path.getFileName().toString().startsWith("LoginLog")
+                            || path.getFileName().toString().startsWith("OperationLog")
+                            || path.getFileName().toString().startsWith("OnlineSession"))
+                    .filter(path -> source(path).contains("com.kaiwu.module.identity"))
                     .map(MAIN::relativize)
                     .map(Path::toString)
                     .sorted()
@@ -40,9 +46,11 @@ class ModuleDependencyArchitectureTest {
     @Test
     void credentialAuthenticationNeverDependsOnSchedulerImplementation() throws IOException {
         List<String> offenders;
-        try (var files = Files.walk(MAIN.resolve("com/kaiwu/module/credential"))) {
+        try (var files = Files.walk(MAIN.resolve("com/kaiwu/module/project"))) {
             offenders = files.filter(path -> path.toString().endsWith(".java"))
-                    .filter(path -> source(path).contains("com.kaiwu.module.scheduler"))
+                    .filter(path -> path.getFileName().toString().startsWith("ProjectServiceCredential"))
+                    .filter(path -> source(path)
+                            .matches("(?s).*com\\.kaiwu\\.module\\.operation\\.[^;\\n]*Scheduler[^;\\n]*.*"))
                     .map(MAIN::relativize)
                     .map(Path::toString)
                     .sorted()
@@ -58,37 +66,38 @@ class ModuleDependencyArchitectureTest {
     void coreApplicationServicesUsePortsForCrossModuleCapabilities() {
         Map<String, List<String>> forbidden = new LinkedHashMap<>();
         forbidden.put(
-                "com/kaiwu/module/auth/AuthService.java",
+                "com/kaiwu/module/identity/service/impl/AuthServiceImpl.java",
                 List.of(
-                        "com.kaiwu.module.audit.AuditService",
-                        "com.kaiwu.module.i18n.I18nService",
+                        "com.kaiwu.module.operation.service.AuditService",
+                        "com.kaiwu.module.configuration.service.I18nService",
                         "org.springframework.data.redis.core.StringRedisTemplate"));
         forbidden.put(
-                "com/kaiwu/module/project/SystemPermissionSessionService.java",
+                "com/kaiwu/module/project/service/SystemPermissionSessionService.java",
                 List.of(
-                        "com.kaiwu.module.auth.AuthService",
-                        "com.kaiwu.module.notification.NotificationService",
+                        "com.kaiwu.module.identity.service.AuthService",
+                        "com.kaiwu.module.operation.service.NotificationService",
                         "org.springframework.data.redis.core.StringRedisTemplate"));
         forbidden.put(
-                "com/kaiwu/module/project/SystemPermissionCutoverRunner.java",
+                "com/kaiwu/module/project/lifecycle/SystemPermissionCutoverRunner.java",
                 List.of(
-                        "com.kaiwu.module.auth.AuthService",
+                        "com.kaiwu.module.identity.service.AuthService",
                         "org.springframework.data.redis.core.StringRedisTemplate"));
         forbidden.put(
-                "com/kaiwu/module/projectgeneration/ProjectGenerationService.java",
+                "com/kaiwu/module/factory/service/impl/ProjectGenerationServiceImpl.java",
                 List.of(
-                        "com.kaiwu.module.project.ProjectRepository",
-                        "com.kaiwu.module.gitlab.GitlabApiClient",
-                        "com.kaiwu.module.notification.NotificationService"));
+                        "com.kaiwu.module.project.repository.ProjectRepository",
+                        "com.kaiwu.module.operation.service.NotificationService"));
         forbidden.put(
-                "com/kaiwu/module/projectgeneration/ProjectBlueprintService.java",
-                List.of("com.kaiwu.module.ai.AiProviderService", "com.kaiwu.module.ai.OpenAiCompatibleClient"));
-        forbidden.put(
-                "com/kaiwu/module/scheduler/ProjectSchedulerService.java",
+                "com/kaiwu/module/factory/service/impl/ProjectBlueprintServiceImpl.java",
                 List.of(
-                        "com.kaiwu.module.audit.AuditService",
-                        "com.kaiwu.module.project.ProjectRepository",
-                        "com.kaiwu.module.credential.ProjectServiceCredentials"));
+                        "com.kaiwu.module.connector.service.AiProviderService",
+                        "com.kaiwu.module.connector.client.OpenAiCompatibleClient"));
+        forbidden.put(
+                "com/kaiwu/module/operation/service/impl/ProjectSchedulerServiceImpl.java",
+                List.of(
+                        "com.kaiwu.module.operation.service.AuditService",
+                        "com.kaiwu.module.project.repository.ProjectRepository",
+                        "com.kaiwu.module.project.service.ProjectServiceCredentials"));
 
         Map<String, List<String>> offenders = new LinkedHashMap<>();
         forbidden.forEach((relative, types) -> {

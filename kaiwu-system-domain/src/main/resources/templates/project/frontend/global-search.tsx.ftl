@@ -1,7 +1,7 @@
-<#noparse>import { SearchOutlined } from '@ant-design/icons';
-import { AutoComplete, Input, Spin, Typography } from 'antd';
+<#noparse>import { AutoComplete, Input, Spin, Typography } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { globalSearch, gotoPlatform, type SearchItem } from '@/services/platform';
+import LineIcon from '@/components/LineIcon';
 
 const TYPE_LABEL: Record<SearchItem['type'], string> = {
   PROJECT: '项目',
@@ -78,7 +78,7 @@ export default function GlobalSearch({ block }: { block?: boolean }) {
     <AutoComplete
       value={keyword}
       options={options}
-      style={block ? { width: '100%' } : { width: 220 }}
+      style={block ? { width: '100%' } : { width: 170 }}
       onChange={setKeyword}
       onSelect={(path: string) => gotoPlatform(path)}
       notFoundContent={loading ? <Spin size="small" /> : keyword.trim() ? '无匹配结果' : null}
@@ -86,14 +86,10 @@ export default function GlobalSearch({ block }: { block?: boolean }) {
       <Input
         ref={inputRef as never}
         allowClear
-        variant="borderless"
-        placeholder="搜索"
-        prefix={<SearchOutlined style={{ color: 'rgba(0,0,0,0.45)' }} />}
-        suffix={
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            ⌘K
-          </Typography.Text>
-        }
+        className="kaiwu-global-search"
+        placeholder="搜索与跳转"
+        prefix={<LineIcon name="search" size={15} />}
+        suffix={<span className="kaiwu-global-search-kbd">⌘ K</span>}
       />
     </AutoComplete>
   );

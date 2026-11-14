@@ -1,10 +1,10 @@
 # ${projectName} 前端 Agent Contract
 
 - 本仓库只属于 `${projectCode}`，使用 `@umijs/max + Ant Design 5 + ProComponents`。
-- 权限码必须与后端 `@RequirePermission`、平台 `menu.sql` BUTTON 完全一致，
+- 权限码必须与后端 `@RequirePermission`、`kaiwu/menus.yml`（在后端仓库）的 BUTTON 完全一致，
   由 `pnpm check:perm` 校验，**改完必须跑**。同一模块下新增 action（如 `:export`）
   不需要改契约文件；**新增模块**必须把 `permissionPrefix` 登记进
-  `docs/kaiwu-project-blueprint.json` 的 `modules`，并同步补后端注解与 `menu.sql` seed。
+  `docs/kaiwu-project-blueprint.json` 的 `modules`，并同步补后端注解与 `kaiwu/menus.yml` 的 BUTTON。
   该文件是本仓库与后端仓库共享的模块契约，不得删除。
 - 用户可见且需要翻译或运营配置的状态/枚举走 `@/hooks/useManagedDictionary` 与
   `@/components/ManagedDictSelect|ManagedDictText`，

@@ -43,7 +43,7 @@ fi
 # public_visible=1 时，接口会下发它但保存接口会拒绝同样的值，两侧口径必须同时成立。
 # 以 sql/schema.sql 为准：V15 用 UPDATE 翻转标志，增量脚本本身无法直接读出最终状态。
 rg -o -r '$1' \
-  "^\s*\(\d+, '([A-Za-z0-9_.:-]+)',.*, '[a-z][a-z0-9_.]*', 1, \d, '(?:ENABLED|DISABLED)'," \
+  "^\s*\(\d+, \d+, '([A-Za-z0-9_.:-]+)',.*, '[a-z][a-z0-9_.]*', 1, \d, '(?:ENABLED|DISABLED)'," \
   "$repo_root/sql/schema.sql" | sort -u > "$public_keys"
 if [ ! -s "$public_keys" ]; then
   echo "sql/schema.sql 未解析到任何 public_visible 资源，公开范围校验失效。" >&2

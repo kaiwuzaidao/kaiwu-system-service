@@ -10,7 +10,6 @@ public record AiProviderView(
         String model,
         BigDecimal temperature,
         int timeoutSeconds,
-        boolean enabled,
         String lastTestStatus,
         String lastTestMessage,
         LocalDateTime lastTestAt) {}

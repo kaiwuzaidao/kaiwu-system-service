@@ -42,6 +42,11 @@ class ${table.entityName}ControllerTest {
             .standaloneSetup(new ${table.entityName}Controller(service))
             .build();
 
+    /**
+     * 验证分页接口返回统一响应包装。
+     *
+     * @throws Exception 模拟请求失败时抛出
+     */
     @Test
     void pageReturnsUnifiedEnvelope() throws Exception {
         ${table.entityName} record = new ${table.entityName}();
@@ -63,6 +68,11 @@ class ${table.entityName}ControllerTest {
                 .andExpect(jsonPath("$.data.records[0]").exists());
     }
 
+    /**
+     * 验证删除接口委托服务层处理并返回成功。
+     *
+     * @throws Exception 模拟请求失败时抛出
+     */
     @Test
     void deleteDelegatesToServiceAndReturnsOk() throws Exception {
         mvc.perform(delete("/api/${moduleCode}/${resourceCode}/{id}", ${pkPathSample}))
@@ -72,6 +82,11 @@ class ${table.entityName}ControllerTest {
         verify(service).delete(${pkSample});
     }
 
+    /**
+     * 验证修改接口以路径中的主键为准并返回成功。
+     *
+     * @throws Exception 模拟请求失败时抛出
+     */
     @Test
     void updateTakesIdentityFromPathAndReturnsOk() throws Exception {
         mvc.perform(put("/api/${moduleCode}/${resourceCode}/{id}", ${pkPathSample})

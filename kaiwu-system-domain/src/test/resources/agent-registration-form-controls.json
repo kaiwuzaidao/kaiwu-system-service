@@ -1,0 +1,73 @@
+{
+  "projectCode": "crm",
+  "code": "crm.record.list",
+  "version": "2",
+  "description": "查询记录",
+  "permission": "record:record:list",
+  "dataScope": "SELF",
+  "params": {
+    "pageSize": {
+      "type": "INT",
+      "required": false,
+      "min": 1,
+      "max": 100,
+      "maxLength": null,
+      "values": null,
+      "enumFrom": null,
+      "defaultValue": 20
+    },
+    "keyword": {
+      "type": "ENUM",
+      "required": true,
+      "min": null,
+      "max": null,
+      "maxLength": null,
+      "values": [
+        "ACTIVE",
+        "DISABLED"
+      ],
+      "enumFrom": null,
+      "defaultValue": null
+    },
+    "enabled": {
+      "type": "DATETIME",
+      "required": false,
+      "min": null,
+      "max": null,
+      "maxLength": null,
+      "values": null,
+      "enumFrom": null,
+      "defaultValue": null
+    }
+  },
+  "outboundFields": [
+    "id",
+    "title"
+  ],
+  "redact": {},
+  "readOnly": true,
+  "idempotent": true,
+  "confirmation": "NONE",
+  "timeoutMs": 5000,
+  "inputForm": {
+    "title": "查询跟进记录",
+    "fields": [
+      {
+        "name": "keyword",
+        "label": "关键词",
+        "multiline": false,
+        "dictCode": "common.status"
+      },
+      {
+        "name": "enabled",
+        "label": "是否启用",
+        "multiline": false
+      },
+      {
+        "name": "pageSize",
+        "label": "返回条数",
+        "multiline": false
+      }
+    ]
+  }
+}

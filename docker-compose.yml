@@ -56,7 +56,7 @@ services:
     image: flyway/flyway:11-alpine
     command: -connectRetries=60 migrate
     environment:
-      FLYWAY_URL: jdbc:mysql://${KAIWU_DB_HOST:-mysql}:${KAIWU_DB_PORT:-3306}/${KAIWU_DB_NAME:-kaiwu_platform}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      FLYWAY_URL: jdbc:mysql://${KAIWU_DB_HOST:-mysql}:${KAIWU_DB_PORT:-3306}/${KAIWU_DB_NAME:-kaiwu_platform}?useUnicode=true&characterEncoding=utf8&connectionTimeZone=${KAIWU_TIME_ZONE:-Asia/Shanghai}&forceConnectionTimeZoneToSession=true&allowPublicKeyRetrieval=true
       FLYWAY_USER: ${KAIWU_DB_USER:-kaiwu}
       FLYWAY_PASSWORD: ${KAIWU_MYSQL_PASSWORD:?KAIWU_MYSQL_PASSWORD is required}
       FLYWAY_LOCATIONS: filesystem:/flyway/sql
@@ -90,6 +90,9 @@ services:
       - ./docker/ai-egress-proxy/entrypoint.sh:/usr/local/bin/kaiwu-egress-entrypoint.sh:ro
 
   system-service:
+    # 发布版由 ./kaiwu up 设置 KAIWU_IMAGE_TAG=<版本> 并直接拉取 CI 发布的镜像；
+    # 源码开发态保持 local，由 build 在本机构建。KAIWU_IMAGE_REGISTRY 可改指可访问的镜像仓库。
+    image: ${KAIWU_IMAGE_REGISTRY:-ghcr.io/kaiwuzaidao}/kaiwu-system-service:${KAIWU_IMAGE_TAG:-local}
     build:
       context: ..
       dockerfile: kaiwu-system-service/Dockerfile
@@ -108,8 +111,6 @@ services:
       KAIWU_CONTEXT_PUBLIC_KEY: ${KAIWU_CONTEXT_PUBLIC_KEY:?KAIWU_CONTEXT_PUBLIC_KEY is required}
       KAIWU_CONFIG_ENCRYPTION_KEY: ${KAIWU_CONFIG_ENCRYPTION_KEY:?KAIWU_CONFIG_ENCRYPTION_KEY is required}
       KAIWU_ARTIFACT_ROOT: /var/lib/kaiwu/artifacts
-      KAIWU_GITLAB_URL: ${KAIWU_GITLAB_URL:-}
-      KAIWU_GITLAB_TOKEN: ${KAIWU_GITLAB_TOKEN:-}
       # 业务服务投递站内信的共享凭据；未设置时投递端点直接拒绝（ADR 0007）。
       KAIWU_NOTIFICATION_DELIVERY_TOKEN: ${KAIWU_NOTIFICATION_DELIVERY_TOKEN:-}
       KAIWU_GATEWAY_INTERNAL_TOKEN: ${KAIWU_GATEWAY_INTERNAL_TOKEN:?KAIWU_GATEWAY_INTERNAL_TOKEN is required}
@@ -117,6 +118,9 @@ services:
       # export 这两个变量并带上 --profile ai-egress 启动（docs/NACOS.md）。
       KAIWU_AI_PROVIDER_ALLOWED_HOSTS: ${KAIWU_AI_PROVIDER_ALLOWED_HOSTS:-}
       KAIWU_AI_PROVIDER_EGRESS_PROXY_URI: ${KAIWU_AI_PROVIDER_EGRESS_PROXY_URI:-}
+      # 对象存储出站默认关闭（ADR 0039）：白名单为空时任何 STS 与存储地址都被拒绝。
+      KAIWU_STORAGE_ALLOWED_HOSTS: ${KAIWU_STORAGE_ALLOWED_HOSTS:-}
+      KAIWU_STORAGE_EGRESS_PROXY_URI: ${KAIWU_STORAGE_EGRESS_PROXY_URI:-}
       SPRING_CLOUD_NACOS_DISCOVERY_ENABLED: "false"
       SPRING_CLOUD_NACOS_CONFIG_ENABLED: "false"
     volumes:
@@ -128,6 +132,7 @@ services:
         condition: service_healthy
 
   gateway-service:
+    image: ${KAIWU_IMAGE_REGISTRY:-ghcr.io/kaiwuzaidao}/kaiwu-gateway-service:${KAIWU_IMAGE_TAG:-local}
     build:
       context: ../kaiwu-gateway-service
     environment:
@@ -149,10 +154,17 @@ services:
       # 同机跑第二份实例时用 KAIWU_GATEWAY_PORT 错开；只隔离 COMPOSE_PROJECT_NAME
       # 不够，端口仍会撞。默认值不变。
       - "127.0.0.1:${KAIWU_GATEWAY_PORT:-8088}:8088"
+    networks:
+      default:
+        aliases:
+          # 生成的业务前端 nginx 以此名反代 API（与 Kubernetes 中的 Gateway Service 同名）。
+          # 业务前端加入平台网络后启动时就能解析它；缺了这个别名 nginx 会因 host not found 反复重启。
+          - kaiwu-kaiwu-gateway
     depends_on:
       - system-service
 
   system-web:
+    image: ${KAIWU_IMAGE_REGISTRY:-ghcr.io/kaiwuzaidao}/kaiwu-system-web:${KAIWU_IMAGE_TAG:-local}
     build:
       context: ../kaiwu-system-web
       args:
@@ -160,6 +172,9 @@ services:
         NPM_STRICT_SSL: ${KAIWU_NPM_STRICT_SSL:-true}
     ports:
       - "127.0.0.1:${KAIWU_WEB_PORT:-8000}:8080"
+    volumes:
+      # ./kaiwu project-up 写入的本机业务前端同源入口（ADR 0025 本机补充）；目录为空时不产生任何路由。
+      - ./apps.managed.d:/etc/nginx/kaiwu-apps:ro
     depends_on:
       - gateway-service
 

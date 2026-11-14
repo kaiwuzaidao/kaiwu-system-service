@@ -1,6 +1,6 @@
 package com.kaiwu.common;
 
-import com.kaiwu.module.auth.AuthFailureException;
+import com.kaiwu.module.identity.exception.AuthFailureException;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

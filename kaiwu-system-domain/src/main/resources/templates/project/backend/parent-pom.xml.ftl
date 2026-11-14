@@ -27,6 +27,9 @@
              （安全约束绕过）、CVE-2026-65905（DIGEST 认证重放）、CVE-2026-68525
              （FORM 认证绕过）。修复版 11.0.25。Spring Boot 升级到自带该版本后可移除。 -->
         <tomcat.version>11.0.25</tomcat.version>
+        <!-- Spring Boot 4.0.7 管理的 Spring Framework 7.0.8 有 2 个 CRITICAL：CVE-2026-47884、
+             CVE-2026-47890。修复版 7.0.9，与平台同步；Spring Boot 升级后可移除本行。 -->
+        <spring-framework.version>7.0.9</spring-framework.version>
         <mybatis-plus.version>3.5.17</mybatis-plus.version>
         <kaiwu-system-starter.version>${starterVersion}</kaiwu-system-starter.version>
         <spotless.version>2.46.1</spotless.version>

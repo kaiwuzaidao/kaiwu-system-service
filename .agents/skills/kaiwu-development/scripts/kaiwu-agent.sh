@@ -32,6 +32,12 @@ has_tool() {
   command -v "$1" >/dev/null 2>&1
 }
 
+# A linked worktree stores .git as a file; require Git to validate either form.
+is_git_worktree() {
+  [[ -e "$1/.git" ]] &&
+    [[ "$(git -C "$1" rev-parse --is-inside-work-tree 2>/dev/null)" == "true" ]]
+}
+
 print_tool() {
   local tool="$1"
   if has_tool "$tool"; then
@@ -88,7 +94,7 @@ doctor() {
   echo "Repositories:"
   for repository in "${repositories[@]}"; do
     repo_path="${workspace_dir}/${repository}"
-    if [[ ! -d "${repo_path}/.git" ]]; then
+    if ! is_git_worktree "$repo_path"; then
       printf 'missing %-28s\n' "$repository"
       continue
     fi
@@ -110,7 +116,7 @@ changed_repositories() {
   local repository repo_path
   for repository in "${repositories[@]}"; do
     repo_path="${workspace_dir}/${repository}"
-    if [[ -d "${repo_path}/.git" ]] &&
+    if is_git_worktree "$repo_path" &&
       [[ -n "$(git -C "$repo_path" status --porcelain)" ]]; then
       printf '%s\n' "$repository"
     fi
@@ -311,7 +317,8 @@ require_known_tool() {
 
 # present（与模板逐字一致）/ drifted（存在但被改过）/ absent（未生成）
 adapter_state() {
-  local path="${system_repo}/$(adapter_path "$1")"
+  local path
+  path="${system_repo}/$(adapter_path "$1")"
   if [[ ! -f "$path" ]]; then
     echo absent
   elif render_adapter "$1" | diff -q - "$path" >/dev/null 2>&1; then

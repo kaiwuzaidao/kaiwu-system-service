@@ -8,7 +8,7 @@ parent_dir="$(dirname "$repo_dir")"
 runtime_dir="${parent_dir}/.kaiwu"
 local_dir="${runtime_dir}/local"
 local_keys_env="${local_dir}/runtime-keys.env"
-runtime_env="${runtime_dir}/dev.env"
+runtime_env="${KAIWU_RUNTIME_ENV_FILE:-${runtime_dir}/dev.env}"
 command_name="${1:-up}"
 started_processes=()
 
@@ -136,6 +136,8 @@ stop_process() {
       kill -0 "$pid" 2>/dev/null || break
       sleep 1
     done
+    # 两个探测/终止命令都允许失败：进程可在任意一次探测之间自行退出。
+    # shellcheck disable=SC2015
     kill -0 "$pid" 2>/dev/null && kill -9 "$pid" 2>/dev/null || true
   elif kill -0 "$pid" 2>/dev/null; then
     echo "拒绝停止 PID ${pid}：它不再是 Kaiwu ${name} 进程。" >&2
@@ -172,7 +174,20 @@ wait_for_http() {
 # 存在的理由是调试节奏：全容器模式下改一行前端要等镜像重建（本机实测 250 秒），
 # 没人会用这种循环写代码；而 Nacos 直启模式又要求你先自备一套 Nacos。
 # 这一档不碰 Nacos，配置全部来自 local profile 与 .kaiwu/dev.env。
+load_dev_runtime_env() {
+  [[ -f "$runtime_env" ]] || fail "尚未初始化本地环境，请先执行：./scripts/kaiwu.sh up"
+  set -a
+  # shellcheck disable=SC1090 # 只加载部署方指定的本地运行配置。
+  source "$runtime_env"
+  set +a
+  # shellcheck source=database-config.sh
+  source "$repo_dir/scripts/database-config.sh"
+  load_database_config
+  require_bundled_development_database
+}
+
 dev_up() {
+  load_dev_runtime_env
   require_tool docker
   require_tool java
   require_tool mvn
@@ -181,12 +196,6 @@ dev_up() {
   require_tool lsof
   require_tool openssl
   require_java_21
-
-  [[ -f "$runtime_env" ]] || fail "尚未初始化本地环境，请先执行：./scripts/kaiwu.sh up"
-  set -a
-  # shellcheck disable=SC1090 # 由 kaiwu.sh 生成，只包含受控 KEY=value。
-  source "$runtime_env"
-  set +a
 
   local mysql_port="${KAIWU_DEV_MYSQL_PORT:-3306}"
   local redis_port="${KAIWU_DEV_REDIS_PORT:-6379}"

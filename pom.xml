@@ -13,7 +13,7 @@
 
     <groupId>com.kaiwuzaidao</groupId>
     <artifactId>kaiwu-system</artifactId>
-    <version>0.1.0</version>
+    <version>0.2.0</version>
     <packaging>pom</packaging>
     <name>Kaiwu System</name>
     <description>Kaiwu 平台控制面后端</description>
@@ -26,6 +26,7 @@
     </licenses>
 
     <modules>
+        <module>kaiwu-dm-migrator</module>
         <module>kaiwu-system-api</module>
         <module>kaiwu-system-domain</module>
         <module>kaiwu-system-boot</module>
@@ -38,6 +39,7 @@
              Spring Boot 升级到自带该版本后可移除本行。 -->
         <httpcore5.version>5.4.3</httpcore5.version>
         <java.version>21</java.version>
+        <flyway.version>12.11.0</flyway.version>
         <jackson-2-bom.version>2.21.5</jackson-2-bom.version>
         <jackson-bom.version>3.1.5</jackson-bom.version>
         <netty.version>4.2.17.Final</netty.version>
@@ -45,6 +47,10 @@
              绕过）、CVE-2026-65905（DIGEST 认证重放）、CVE-2026-68525（FORM 认证绕过）。
              修复版 11.0.25。Spring Boot 升级到自带该版本后可移除本行。 -->
         <tomcat.version>11.0.25</tomcat.version>
+        <!-- Spring Boot 4.0.7 管理的 Spring Framework 7.0.8 有 2 个 CRITICAL：CVE-2026-47884、
+             CVE-2026-47890（spring-webmvc / spring-webflux），镜像扫描 scan:image 因此阻断部署。
+             修复版 7.0.9。Spring Boot 升级到自带该版本后可移除本行。 -->
+        <spring-framework.version>7.0.9</spring-framework.version>
         <spring-cloud.version>2025.1.2</spring-cloud.version>
         <spring-cloud-alibaba.version>2025.1.0.0</spring-cloud-alibaba.version>
         <jsqlparser.version>5.2</jsqlparser.version>
@@ -53,8 +59,11 @@
         <error-prone.version>2.36.0</error-prone.version>
         <spotless.version>2.46.1</spotless.version>
         <jjwt.version>0.13.0</jjwt.version>
+        <!-- 仅测试使用：交叉验证对象存储的 SigV4 签名（ADR 0039）。 -->
+        <awssdk.version>2.56.0</awssdk.version>
         <poi.version>5.5.1</poi.version>
-        <kaiwu-system-starter.version>0.1.0</kaiwu-system-starter.version>
+        <freemarker.version>2.3.35</freemarker.version>
+        <kaiwu-system-starter.version>0.2.0</kaiwu-system-starter.version>
     </properties>
 
     <dependencyManagement>

@@ -28,10 +28,24 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{- define "kaiwu.databaseHost" -}}
+{{- if not (has .Values.database.type (list "mysql" "dm")) -}}
+{{- fail "database.type must be mysql or dm" -}}
+{{- end -}}
+{{- if and (eq .Values.database.type "dm") .Values.database.embedded -}}
+{{- fail "DM requires database.embedded=false and an existing dedicated schema" -}}
+{{- end -}}
 {{- if .Values.database.embedded -}}
 {{- printf "%s-mysql" (include "kaiwu.fullname" .) -}}
 {{- else -}}
 {{- required "database.host is required when database.embedded=false" .Values.database.host -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "kaiwu.databaseUrl" -}}
+{{- if eq .Values.database.type "dm" -}}
+{{- printf "jdbc:dm://%s:%v?schema=%s" (include "kaiwu.databaseHost" .) .Values.database.port .Values.database.name -}}
+{{- else -}}
+{{- printf "jdbc:mysql://%s:%v/%s?useUnicode=true&characterEncoding=utf8&connectionTimeZone=%s&forceConnectionTimeZoneToSession=true&allowPublicKeyRetrieval=true" (include "kaiwu.databaseHost" .) .Values.database.port .Values.database.name .Values.timeZone -}}
 {{- end -}}
 {{- end -}}
 

@@ -1,5 +1,6 @@
 package com.kaiwu.module.project.vo;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
 
 /**
@@ -13,6 +14,19 @@ import java.util.List;
  * @param projectCode      项目编码，与 Route 绑定的稳定标识
  * @param permissions      该用户在本项目下的权限码
  * @param projectRoleCodes 该用户在本项目下的角色编码
+ * @param dataScope        数据范围（ADR 0044）；项目没有启用的受控资源时为空，JSON 里不出现该键，
+ *                         此时响应与引入数据范围之前完全一致
  */
 public record ProjectAccessView(
-        String projectId, String projectCode, List<String> permissions, List<String> projectRoleCodes) {}
+        String projectId,
+        String projectCode,
+        List<String> permissions,
+        List<String> projectRoleCodes,
+        @JsonInclude(JsonInclude.Include.NON_NULL) DataScopeView dataScope) {
+
+    /** 不带数据范围的快照，既有调用方沿用。 */
+    public ProjectAccessView(
+            String projectId, String projectCode, List<String> permissions, List<String> projectRoleCodes) {
+        this(projectId, projectCode, permissions, projectRoleCodes, null);
+    }
+}

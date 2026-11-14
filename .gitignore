@@ -4,5 +4,9 @@
 *.iml
 .DS_Store
 .env
+*.env.database
 .kaiwu/
 *.log
+
+# ./kaiwu project-up 生成的本机业务入口，只保留说明文件。
+apps.managed.d/*.conf

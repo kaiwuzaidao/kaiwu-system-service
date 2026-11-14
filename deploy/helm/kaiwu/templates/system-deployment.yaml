@@ -1,3 +1,6 @@
+{{- if and .Values.agent.remoteWriteEnabled (not .Values.agent.remoteReadEnabled) }}
+{{- fail "agent.remoteWriteEnabled 要求先开启 agent.remoteReadEnabled" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -38,14 +41,62 @@ spec:
           type: RuntimeDefault
       {{- if .Values.migration.enabled }}
       initContainers:
+        {{- if eq .Values.database.type "mysql" }}
+        - name: schema-compat-check
+          image: {{ include "kaiwu.image" .Values.images.mysql }}
+          imagePullPolicy: {{ .Values.images.mysql.pullPolicy }}
+          command: ["sh", "/migrations/check-flyway-compatibility.sh", "/migrations"]
+          env:
+            - name: DB_HOST
+              value: {{ include "kaiwu.databaseHost" . | quote }}
+            - name: DB_PORT
+              value: {{ .Values.database.port | quote }}
+            - name: DB_NAME
+              value: {{ .Values.database.name | quote }}
+            - name: DB_USER
+              value: {{ .Values.database.username | quote }}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kaiwu.secretName" . }}
+                  key: {{ .Values.runtimeSecret.keys.databasePassword }}
+          volumeMounts:
+            - name: migrations
+              mountPath: /migrations
+              readOnly: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+        {{- end }}
         - name: flyway
+          {{- if eq .Values.database.type "dm" }}
+          image: {{ include "kaiwu.image" .Values.images.dmMigrator }}
+          imagePullPolicy: {{ .Values.images.dmMigrator.pullPolicy }}
+          {{- else }}
           image: {{ include "kaiwu.image" .Values.images.flyway }}
           imagePullPolicy: {{ .Values.images.flyway.pullPolicy }}
+          {{- end }}
           args:
             - migrate
           env:
+            {{- if eq .Values.database.type "dm" }}
+            - name: DB_JDBC_URL
+              value: {{ include "kaiwu.databaseUrl" . | quote }}
+            - name: DB_NAME
+              value: {{ .Values.database.name | quote }}
+            - name: DB_USER
+              value: {{ .Values.database.username | quote }}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kaiwu.secretName" . }}
+                  key: {{ .Values.runtimeSecret.keys.databasePassword }}
+            - name: MIGRATIONS_DIR
+              value: /flyway/sql
+            {{- else }}
             - name: FLYWAY_URL
-              value: "jdbc:mysql://{{ include "kaiwu.databaseHost" . }}:{{ .Values.database.port }}/{{ .Values.database.name }}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true"
+              value: {{ include "kaiwu.databaseUrl" . | quote }}
             - name: FLYWAY_USER
               value: {{ .Values.database.username | quote }}
             - name: FLYWAY_PASSWORD
@@ -63,6 +114,7 @@ spec:
               value: "false"
             - name: FLYWAY_CONNECT_RETRIES
               value: {{ .Values.migration.connectRetries | quote }}
+            {{- end }}
           volumeMounts:
             - name: migrations
               mountPath: /flyway/sql
@@ -82,6 +134,12 @@ spec:
             - name: http
               containerPort: 8080
           env:
+            # JVM 默认时区与 JDBC 会话时区必须同值：Java 写入的时间（LocalDateTime.now）和
+            # 数据库写入的时间（CURRENT_TIMESTAMP）才会落在同一个时区。
+            - name: TZ
+              value: {{ .Values.timeZone | quote }}
+            - name: KAIWU_TIME_ZONE
+              value: {{ .Values.timeZone | quote }}
             - name: SPRING_PROFILES_ACTIVE
               value: local
             - name: SPRING_CLOUD_NACOS_CONFIG_ENABLED
@@ -97,6 +155,12 @@ spec:
               value: {{ .Values.database.name | quote }}
             - name: DB_USER
               value: {{ .Values.database.username | quote }}
+            {{- if eq .Values.database.type "dm" }}
+            - name: DB_JDBC_URL
+              value: {{ include "kaiwu.databaseUrl" . | quote }}
+            - name: DB_DRIVER
+              value: dm.jdbc.driver.DmDriver
+            {{- end }}
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -130,6 +194,15 @@ spec:
             {{- if $proxyUri }}
             - name: KAIWU_AI_PROVIDER_EGRESS_PROXY_URI
               value: {{ $proxyUri | quote }}
+            {{- end }}
+            {{- if .Values.storage.allowedHosts }}
+            # 对象存储出站管控（StorageNetworkPolicy，ADR 0039）。白名单为空时拒绝一切连接。
+            - name: KAIWU_STORAGE_ALLOWED_HOSTS
+              value: {{ .Values.storage.allowedHosts | quote }}
+            {{- end }}
+            {{- if .Values.storage.egressProxyUri }}
+            - name: KAIWU_STORAGE_EGRESS_PROXY_URI
+              value: {{ .Values.storage.egressProxyUri | quote }}
             {{- end }}
             - name: KAIWU_CONFIG_ENCRYPTION_KEY
               valueFrom:
@@ -166,6 +239,12 @@ spec:
               value: {{ .Values.system.refreshCookieSecure | quote }}
             - name: KAIWU_ARTIFACT_ROOT
               value: /var/lib/kaiwu/artifacts
+            - name: KAIWU_AGENT_REMOTE_ENABLED
+              value: {{ .Values.agent.remoteReadEnabled | quote }}
+            - name: KAIWU_AGENT_REMOTE_WRITE_ENABLED
+              value: {{ .Values.agent.remoteWriteEnabled | quote }}
+            - name: KAIWU_AGENT_REMOTE_GATEWAY_BASE_URL
+              value: {{ printf "http://%s-gateway:8088" (include "kaiwu.fullname" .) | quote }}
             {{- with .Values.serviceAddressing.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}

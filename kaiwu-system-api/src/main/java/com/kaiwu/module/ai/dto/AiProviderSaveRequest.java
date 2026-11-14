@@ -17,5 +17,5 @@ public record AiProviderSaveRequest(
         @DecimalMin(value = "0.0", message = "Temperature 不能小于 0")
                 @DecimalMax(value = "2.0", message = "Temperature 不能大于 2")
                 BigDecimal temperature,
-        @Min(value = 5, message = "超时时间不能小于 5 秒") @Max(value = 300, message = "超时时间不能大于 300 秒") Integer timeoutSeconds,
-        Boolean enabled) {}
+        @Min(value = 5, message = "超时时间不能小于 5 秒") @Max(value = 300, message = "超时时间不能大于 300 秒")
+                Integer timeoutSeconds) {}

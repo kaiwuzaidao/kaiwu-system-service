@@ -1,6 +1,6 @@
 <#noparse>#!/usr/bin/env bash
 #
-# 校验「后端注解 ⊆ 菜单 seed」：每个 @RequirePermission 的权限码都必须在 sql/menu.sql
+# 校验「后端注解 ⊆ 菜单清单」：每个 @RequirePermission 的权限码都必须在 kaiwu/menus.yml
 # 里有对应的 BUTTON 节点。
 #
 # 存在的意义：缺 seed 时接口本身能跑，但平台「项目菜单」里根本看不到这个按钮，
@@ -13,11 +13,11 @@
 set -euo pipefail
 
 repo_dir="$(cd "$(dirname "$0")/.." && pwd)"
-menu_file="${repo_dir}/sql/menu.sql"
+menu_file="${repo_dir}/kaiwu/menus.yml"
 code_pattern='[a-z][a-z0-9-]*:[a-z0-9-]+:[a-z0-9_-]+'
 
 if [ ! -f "${menu_file}" ]; then
-  echo "[check:perm] 缺少 sql/menu.sql：平台无法导入本项目的菜单与权限。" >&2
+  echo "[check:perm] 缺少 kaiwu/menus.yml：平台无法同步本项目的菜单与权限。" >&2
   echo "  改法：恢复该文件；新增受权限保护的接口时同步补 BUTTON 节点。" >&2
   exit 1
 fi
@@ -32,10 +32,9 @@ if [ -z "${annotated}" ]; then
   exit 0
 fi
 
-# 菜单 seed 里的权限码。按「三段冒号字面量」提取而不是绑定某种 INSERT 写法——
-# 列顺序和换行方式在后续迁移里并不一致，绑死写法会漏。
-seeded="$(grep -oE "'${code_pattern}'" "${menu_file}" \
-  | tr -d "'" | sort -u || true)"
+# 清单里的权限码：每个 BUTTON 用一行 `permission: <权限码>` 声明，只认这一种写法，注释里的示例不算。
+seeded="$(sed -nE "s/^[[:space:]-]*permission:[[:space:]]*['\"]?(${code_pattern})['\"]?[[:space:]]*$/\1/p" "${menu_file}" \
+  | sort -u || true)"
 
 failed=0
 
@@ -51,9 +50,9 @@ unseeded="$(comm -23 \
   <(printf '%s\n' "${seeded}"))"
 if [ -n "${unseeded}" ]; then
   failed=1
-  echo "[check:perm] 后端有注解、sql/menu.sql 无 BUTTON seed（管理员无法授权，功能不可用）：" >&2
+  echo "[check:perm] 后端有注解、kaiwu/menus.yml 无 BUTTON 声明（管理员无法授权，功能不可用）：" >&2
   printf '  - %s\n' ${unseeded} >&2
-  echo "  改法：在 sql/menu.sql 追加对应 BUTTON 节点并导入平台库；" >&2
+  echo "  改法：在 kaiwu/menus.yml 追加对应 BUTTON 节点，再用「./kaiwu project sync」同步；" >&2
   echo "  只在运行库里手工建菜单不算数，全新安装复现不出来。" >&2
 fi
 
@@ -61,5 +60,5 @@ if [ "${failed}" -ne 0 ]; then
   exit 1
 fi
 
-echo "[check:perm] 权限码与菜单 seed 一致：$(printf '%s\n' "${annotated}" | wc -l | tr -d ' ') 个权限码全部有 BUTTON 节点。"
+echo "[check:perm] 权限码与菜单清单一致：$(printf '%s\n' "${annotated}" | wc -l | tr -d ' ') 个权限码全部有 BUTTON 节点。"
 </#noparse>

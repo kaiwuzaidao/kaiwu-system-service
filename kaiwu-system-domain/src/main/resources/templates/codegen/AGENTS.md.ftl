@@ -3,7 +3,7 @@
 - 本独立仓库只属于项目 `${projectCode}`；禁止把其他业务项目模块放进来。
 - 后端固定 JDK 21 + Spring Boot 4，生成项目使用单一可部署 Maven 模块。
 - 前端固定 `@umijs/max + Ant Design 5 + ProComponents`。
-- 权限码必须在后端 `@RequirePermission`、前端 `PermissionButton`、平台 `menu.sql`
+- 权限码必须在后端 `@RequirePermission`、前端 `PermissionButton`、平台菜单清单 `kaiwu/menus.yml`
   BUTTON 节点三处完全一致。
 - 字段中文名和检索标记可能来自平台受控的大模型建议，但源码、SQL、路由和权限仍由
   确定性模板生成；不得把生成说明当成可执行业务规则。

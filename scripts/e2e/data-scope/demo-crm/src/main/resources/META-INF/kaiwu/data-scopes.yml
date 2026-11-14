@@ -1,0 +1,5 @@
+resources:
+  - code: 'democrm:customer'
+    name: 客户
+    table: demo_customer
+    allowedScopes: [ALL, DEPT_AND_CHILD, DEPT, SELF, CUSTOM_DEPT]

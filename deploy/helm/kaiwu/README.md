@@ -18,3 +18,19 @@ helm template kaiwu deploy/helm/kaiwu --namespace kaiwu
 部署推荐由 `kaiwu-deploy/gateway-routes/<env>` 生成 ConfigMap，再通过
 `gateway.managedRoutesExistingConfigMap` 只读挂载。两者互斥。任一路由缺少 `PROJECT` 元数据或
 id 重复都会启动失败；该入口不是 discovery locator，也不会从 Nacos 或 Kubernetes 自动暴露服务。
+
+远程 Agent 写能力有独立的 `agent.remoteWriteEnabled`，默认关闭，要求
+`agent.remoteReadEnabled=true`。Chart 将写开关同时传给 System 与 Gateway；
+业务项目自己的 `KAIWU_AGENT_WRITE_ENABLED` 仍须单独开启。三个开关都不能代替
+目标项目管理员对在线 manifest 的逐版审批、写入账本与权限回归。
+
+## 时区
+
+`timeZone`（默认 `Asia/Shanghai`）同时设置 system 容器的 `TZ` 和 JDBC 的 `connectionTimeZone`，
+并开启 `forceConnectionTimeZoneToSession`，使 Java 写入的时间与数据库 `CURRENT_TIMESTAMP`
+落在同一个时区。库里的 `DATETIME` 不带时区：
+
+- 新库直接用默认值即可；
+- 已有数据的库（例如 UTC 时区写入的 test 库）切换后，存量时间相对新数据相差整数小时，
+  在线会话会立即视为过期、需要重新登录，调度器的 `next_run_time`/租约要避开任务运行期切换；
+- 部署之后不要再改这个值。

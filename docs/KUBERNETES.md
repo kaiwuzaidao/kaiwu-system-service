@@ -142,7 +142,7 @@ kubectl port-forward service/kaiwu-kaiwu-web 8000:80 -n kaiwu
 `deploy/helm/kaiwu/values-production.yaml` 是需要复制和审查的示例，不是可直接套用的生产承诺。
 至少完成以下准备：
 
-1. 创建空的 MySQL 8.4 数据库和专用最小权限账号；
+1. 创建空的 MySQL 8.4 数据库和专用最小权限账号；或按 [数据库选择](DATABASES.md) 准备达梦 DM8，并设置 `database.type=dm`、`database.embedded=false`、实际端口和 Schema；
 2. 准备高可用 Redis；
 3. 通过 External Secrets、Sealed Secrets 或平台密钥系统维护 `kaiwu-runtime`；
 4. 配置数据库备份、恢复演练和监控告警；
@@ -234,7 +234,7 @@ Gateway；不能让 API 绕过 Gateway。平台项目的业务后台入口登记
 平台打开时会补项目 ID，并通过同源 nonce 桥接派发内存 Access Token。
 
 菜单属于平台数据库。AI 初始生成时项目工厂已登记；后续业务仓新增菜单，或将同一业务项目
-恢复到新的平台数据库时，把受审查的 `sql/menu.sql` 纳入平台数据库变更流程，不能导入业务库。
+恢复到新的平台数据库时，在新平台上对业务仓的 `kaiwu/` 清单重新执行 `./kaiwu project sync --apply`，不能导入业务库。
 
 ## 6. 数据库迁移
 

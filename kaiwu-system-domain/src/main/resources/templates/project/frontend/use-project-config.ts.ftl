@@ -1,6 +1,7 @@
 import { useCallback, useSyncExternalStore } from 'react';
 import useProjectId from '@/hooks/useProjectId';
 import { requestJson } from '@/services/request';
+import { useAccessTokenVersion } from '@/utils/accessToken';
 
 const CONFIG_REFRESH_MS = 5 * 60 * 1000;
 const CONFIG_RETRY_MS = 5 * 1000;
@@ -34,8 +35,17 @@ interface Entry {
 
 // 配置一次取回整个项目的生效值，因此按 projectId 缓存即可，不像字典要按 code 分桶。
 const cache = new Map<string, Entry>();
+let cachedTokenVersion = -1;
 
-function entry(projectId: string): Entry {
+function entry(projectId: string, tokenVersion: number): Entry {
+  // 会话切换或令牌刷新后重新授权读取，不能复用上一会话的项目配置。
+  if (cachedTokenVersion !== tokenVersion) {
+    cache.forEach((item) => {
+      if (item.timer) clearTimeout(item.timer);
+    });
+    cache.clear();
+    cachedTokenVersion = tokenVersion;
+  }
   const existing = cache.get(projectId);
   if (existing) return existing;
   const created: Entry = {
@@ -101,19 +111,20 @@ function load(value: Entry): void {
 /** 读取本项目全部生效配置，键为配置 key。平台不可用或未加载完成时返回空对象。 */
 export function useProjectConfigs(): Readonly<Record<string, ProjectConfig>> {
   const projectId = useProjectId();
+  const tokenVersion = useAccessTokenVersion();
   const subscribe = useCallback(
     (listener: () => void) => {
       if (!projectId) return () => undefined;
-      const value = entry(projectId);
+      const value = entry(projectId, tokenVersion);
       value.listeners.add(listener);
       load(value);
       return () => value.listeners.delete(listener);
     },
-    [projectId],
+    [projectId, tokenVersion],
   );
   const snapshot = useCallback(
-    () => (!projectId ? EMPTY_CONFIGS : entry(projectId).configs),
-    [projectId],
+    () => (!projectId ? EMPTY_CONFIGS : entry(projectId, tokenVersion).configs),
+    [projectId, tokenVersion],
   );
   return useSyncExternalStore(subscribe, snapshot, () => EMPTY_CONFIGS);
 }

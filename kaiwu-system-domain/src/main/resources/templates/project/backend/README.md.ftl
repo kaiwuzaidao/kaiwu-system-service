@@ -3,26 +3,31 @@
 本仓库由 Kaiwu 项目工厂按脚手架版本 `${templateVersion}` 一次性生成。生成后由本仓库
 独立维护，Kaiwu 不会再次覆盖。
 
-## ⚠️ 交付后必做的两件事
+## 聊天能力接入（可选）
 
-流水线全绿 **不代表**这两件事做完了——它们都不在任何门禁的检查范围里，漏掉的表现是
+本仓库预留了默认关闭的 Agent 配置。接入领域查询或写任务时，按
+[聊天能力接入指南](docs/AGENT_CAPABILITIES.md)逐项实现并审核 Handler；普通 CRUD 接口
+不会自动变成聊天能力。当前依赖的 Starter `${starterVersion}` 已包含 Handler SPI；
+运行开关默认关闭，逐项实现、审核并通过本项目构建验证后再打开。
+
+## ⚠️ 交付后必做的事：同步平台资源清单
+
+流水线全绿 **不代表**这件事做完了——它不在任何门禁的检查范围里，漏掉的表现是
 「页面能打开，但按钮和下拉框都是空的」，很难从报错里看出来。
 
-**1. 导入菜单与权限种子。** 生成的 `sql/menu.sql` 进的是 **Kaiwu System 平台库**，不是
-业务库，且不会自动生效：
+`kaiwu/menus.yml`（菜单与权限）、`kaiwu/dicts.yml`（受管字典）、`kaiwu/configs.yml`（参数配置）
+是本项目在 **Kaiwu System 平台**里的资源清单，不进业务库，也不会自动生效：
 
 ```bash
 cd <kaiwu 开源入口目录>
-./kaiwu import-project-menu <本仓路径>/sql/menu.sql
+./kaiwu login --local                        # 本机平台；远程平台用 ./kaiwu login
+./kaiwu project sync <本仓路径>              # 先看计划
+./kaiwu project sync <本仓路径> --apply      # 确认后写入
 ```
 
-不导入 → 平台里看不到本项目的菜单，页面上所有权限按钮都不显示。
-
-**2. 按需种入受管字典。** 见 `sql/dict.sql`，里面有可直接复制的完整示例和导入命令。
-脚手架不猜业务枚举，所以初始是零字典。注意 `pnpm check:dict` 在零字典时**是通过的**，
-门禁绿灯不代表字典可用。
-
-不种 → 用到 `ManagedDictSelect` 的下拉框是空的，`ManagedDictText` 原样显示字典值。
+只新增、不删除；参数配置的运行值由运维在平台维护，同步不会覆盖。不同步 → 平台里看不到本项目的菜单，
+页面上所有权限按钮都不显示。字典初始为空（脚手架不猜业务枚举），注意 `pnpm check:dict` 在零字典时
+**是通过的**，门禁绿灯不代表字典可用；用到 `ManagedDictSelect` 的下拉框会是空的。
 
 ## 快速开始（第一次运行）
 
@@ -329,4 +334,15 @@ public class DailyReportTask implements ProjectScheduledTaskHandler {
 内嵌 Flyway 在应用启动时执行，脚本目录为
 `kaiwu-${projectCode}-boot/src/main/resources/db/migration/V{n}__*.sql`；
 `sql/schema.sql` 只是累积快照，供审阅对照，运行时不执行。V1 仅用于全新空库，不自动接管
-已有 schema。平台项目权限种子位于 `sql/menu.sql`，需导入 Kaiwu System 库，不能与业务库混用。
+已有 schema。平台资源清单位于 `kaiwu/`（菜单、字典、配置），用 `./kaiwu project sync` 同步到 Kaiwu System，不能与业务库混用。
+
+## 包结构与契约
+
+遵守 [docs/PACKAGE_STRUCTURE.md](docs/PACKAGE_STRUCTURE.md) 和版本化 `docs/package-layout.json`。
+业务采用 `module/分类/controller|service|repository|mapper|entity|agent`，不插入功能目录。
+Service 接口与 `service/impl` 分离；新增写 DTO 位于 API 的 `dto/request`，查询 DTO 位于 `dto/query`。
+布局门禁随 Maven verify 执行。新分类须更新契约；权限、数据范围与能力审批继续独立验证。
+
+## Excel 导入导出（按需）
+
+需要 Excel 导入导出时，在 domain 的 pom.xml 添加 Maven Central 依赖 `com.kaiwuzaidao:kaiwu-excel:${starterVersion}`。用 `ExcelTable.template(headers)` 下载模板、`ExcelTable.read(input, headers, maxBytes, maxRows)` 获取带行号的文本，调用业务服务进行校验与写入；使用 `ExcelTable.write(output, headers, rows, maxRows)` 导出。表格解析不提供授权和业务规则。导入错误向用户展示行号与可安全展示的说明，不记录原始表格。导出查询必须复用列表筛选和数据权限，限制结果并对敏感字段脱敏。

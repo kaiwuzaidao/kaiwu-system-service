@@ -1,5 +1,4 @@
-<#noparse>import { BellOutlined } from '@ant-design/icons';
-import { App, Badge, Button, Empty, List, Popover, Spin, Typography } from 'antd';
+<#noparse>import { App, Badge, Button, Empty, List, Popover, Spin, Typography } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
 import {
   fetchNotificationSummary,
@@ -9,6 +8,7 @@ import {
   queryNotifications,
   type PlatformNotification,
 } from '@/services/platform';
+import LineIcon from '@/components/LineIcon';
 
 /**
  * 平台站内信。消息由平台统一投递（收件人是平台用户），本子应用只做展示与已读，
@@ -122,12 +122,18 @@ export default function NotificationBell({ compact }: { compact?: boolean }) {
       open={open}
       onOpenChange={onOpenChange}
       trigger="click"
-      placement="topRight"
+      placement={compact ? 'topRight' : 'bottomRight'}
       content={content}
     >
-      <Button type="text" size={compact ? 'small' : 'middle'} aria-label="站内信">
-        <Badge count={unread} size="small" offset={[2, -2]}>
-          <BellOutlined style={{ fontSize: 16 }} />
+      <Button
+        type="text"
+        size={compact ? 'small' : 'middle'}
+        aria-label="站内信"
+        className="kaiwu-bell"
+      >
+        {/* V5 顶栏只用圆点提示有未读，条数在展开的面板里看。 */}
+        <Badge dot={unread > 0} color="#eb835a" offset={[-3, 3]}>
+          <LineIcon name="bell" size={19} />
         </Badge>
       </Button>
     </Popover>

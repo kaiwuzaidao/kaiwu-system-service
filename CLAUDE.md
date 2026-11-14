@@ -27,3 +27,12 @@
   连编译都到不了。修复只有一条命令 `mvn spotless:apply`（palantirJavaFormat），
   不要手工对齐——手工对齐的结果和 palantir 的输出几乎不会一致。
 - 提交前的固定动作：`mvn spotless:apply && ./scripts/verify.sh`。依据 ADR 0029。
+- Java 代码风格和中文 Javadoc 以 [docs/JAVA_STYLE.md](docs/JAVA_STYLE.md) 为准；所有手写
+  类型、构造器和方法都要有能说明职责或边界的中文 Javadoc。
+
+## 后端包结构与契约 v1
+
+遵守 [PACKAGE_STRUCTURE.md](docs/PACKAGE_STRUCTURE.md) 与 [package-layout.json](docs/package-layout.json)。
+分类在前、技术层在后，直接 `identity/controller/UserController`，不再插入功能目录。
+公开 Java 类型按兼容清单保留；迁移不得改变权限、HTTP/Agent 协议和数据库语义。
+布局门禁由 `PackageLayoutContractTest` 随 Maven 测试执行。

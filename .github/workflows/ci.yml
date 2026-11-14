@@ -44,3 +44,8 @@ jobs:
       - name: Verify
         working-directory: kaiwu-system-service
         run: mvn -B verify
+      - name: Verify first-install database selection
+        working-directory: kaiwu-system-service
+        run: |
+          bash scripts/tests/check-database-config-test.sh
+          bash scripts/tests/check-dev-database-test.sh

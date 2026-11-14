@@ -59,6 +59,19 @@
     </dependencies>
     <build>
         <finalName>kaiwu-${projectCode}-service</finalName>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <!-- 行级数据范围清单：运行时由 kaiwu-data-scope 从 classpath 读取，与平台同步用的是同一份文件。 -->
+            <resource>
+                <directory>${r"${project.basedir}"}/../kaiwu</directory>
+                <includes>
+                    <include>data-scopes.yml</include>
+                </includes>
+                <targetPath>META-INF/kaiwu</targetPath>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>

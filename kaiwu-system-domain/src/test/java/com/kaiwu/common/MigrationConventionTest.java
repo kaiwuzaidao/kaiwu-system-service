@@ -39,7 +39,7 @@ class MigrationConventionTest {
      * <p>存量迁移不追溯：已发布的 V 脚本一律不可修改（CLAUDE.md），而且历史 ID 空间已经
      * 交织在一起，追溯只会得到一堆改不了的红灯。</p>
      */
-    private static final int BASELINE_VERSION = 35;
+    private static final int BASELINE_VERSION = 127;
 
     /**
      * 破坏性变更申报约定立本时的最后一个版本；只对其后的新迁移生效。
@@ -98,7 +98,7 @@ class MigrationConventionTest {
             return files.filter(path -> MIGRATION_NAME
                             .matcher(path.getFileName().toString())
                             .matches())
-                    .sorted()
+                    .sorted(java.util.Comparator.comparingInt(MigrationConventionTest::versionOf))
                     .toList();
         } catch (IOException exception) {
             throw new UncheckedIOException(exception);
@@ -141,6 +141,44 @@ class MigrationConventionTest {
         assertThat(duplicated)
                 .withFailMessage("Flyway 版本号重复，只有一个会被执行、另一个静默失效：%s", duplicated)
                 .isEmpty();
+    }
+
+    /** 两种数据库维护同一迁移终点，达梦的 Helm 副本必须完整且逐字一致。 */
+    @Test
+    void damengMigrationsTrackPlatformVersionAndHelmCopies() throws IOException {
+        Path root = migrationDirectory().getParent().getParent();
+        Path source = root.resolve("sql/dm");
+        Path helm = root.resolve("deploy/helm/kaiwu/files/migrations-dm");
+        List<Path> dm;
+        try (Stream<Path> files = Files.list(source)) {
+            dm = files.filter(path -> path.getFileName().toString().endsWith(".sql"))
+                    .toList();
+        }
+        assertThat(dm).isNotEmpty();
+        Set<Integer> versions = new HashSet<>();
+        for (Path path : dm) {
+            assertThat(MIGRATION_NAME.matcher(path.getFileName().toString()).matches())
+                    .isTrue();
+            assertThat(versions.add(versionOf(path))).as("达梦迁移版本不得重复").isTrue();
+            assertThat(Files.readAllBytes(helm.resolve(path.getFileName()))).isEqualTo(Files.readAllBytes(path));
+        }
+        assertThat(versions.stream().mapToInt(Integer::intValue).max().orElseThrow())
+                .isEqualTo(migrations().stream()
+                        .mapToInt(MigrationConventionTest::versionOf)
+                        .max()
+                        .orElseThrow());
+        try (Stream<Path> copies = Files.list(helm)) {
+            assertThat(copies.filter(path -> path.getFileName().toString().endsWith(".sql"))
+                            .count())
+                    .isEqualTo(dm.size());
+        }
+        assertThat(versions).contains(127).allMatch(version -> version >= BASELINE_VERSION);
+        assertThat(versions)
+                .containsExactlyInAnyOrderElementsOf(migrations().stream()
+                        .map(MigrationConventionTest::versionOf)
+                        .toList());
+        assertThat(source.resolve("V127__kaiwu_baseline.sql")).exists();
+        assertThat(migrationDirectory().resolve("V127__kaiwu_baseline.sql")).exists();
     }
 
     /**
@@ -235,17 +273,6 @@ class MigrationConventionTest {
     }
 
     /**
-     * 新迁移引入的 seed ID 必须落在保留段。
-     *
-     * <p>判定方式刻意选成「新迁移里出现的 {@code 91…} 字面量，必须在更早的迁移里已经出现过」：
-     * 修复类迁移需要回引旧 ID（V28 就要引 V27 写坏的那两个）来做纠正，一刀切禁止
-     * {@code 91…} 会把这类迁移全部误伤。**新造的 ID 必须是 {@code 92…}，回引旧 ID 不受限。**</p>
-     *
-     * <p>这条规则不试图推断「动态段有多长」——那是静态不可知的，我第一版就栽在这上面：
-     * 按 1000 的容量假设去判，连正确的 V28 都被判违规。换地址空间才是能成立的做法。</p>
-     */
-    @Test
-    /**
      * 去掉 {@code COALESCE(MAX(id), …)} 这类"取当前最大值、否则用某个下界"的表达式所在行。
      *
      * <p>本检查要抓的是"在 91… 段里新建 seed 行"，而下界字面量并不会成为任何一行的主键：
@@ -258,6 +285,17 @@ class MigrationConventionTest {
         return sql.lines().filter(line -> !line.contains("MAX(id)")).collect(java.util.stream.Collectors.joining("\n"));
     }
 
+    /**
+     * 新迁移引入的 seed ID 必须落在保留段。
+     *
+     * <p>判定方式刻意选成「新迁移里出现的 {@code 91…} 字面量，必须在更早的迁移里已经出现过」：
+     * 修复类迁移需要回引旧 ID（V28 就要引 V27 写坏的那两个）来做纠正，一刀切禁止
+     * {@code 91…} 会把这类迁移全部误伤。**新造的 ID 必须是 {@code 92…}，回引旧 ID 不受限。**</p>
+     *
+     * <p>这条规则不试图推断「动态段有多长」——那是静态不可知的，我第一版就栽在这上面：
+     * 按 1000 的容量假设去判，连正确的 V28 都被判违规。换地址空间才是能成立的做法。</p>
+     */
+    @Test
     void newMigrationsAllocateSeedIdsFromTheReservedBand() {
         Set<String> knownIds = new HashSet<>();
         List<String> offenders = new ArrayList<>();

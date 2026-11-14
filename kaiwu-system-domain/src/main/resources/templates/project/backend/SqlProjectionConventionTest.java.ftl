@@ -39,6 +39,9 @@ class SqlProjectionConventionTest {
     private static final Pattern SELECT_STAR = Pattern.compile(
             "(?is)\\bselect\\s+(?:[a-z_][a-z0-9_]*\\.)?\\*");
 
+    /**
+     * 验证 ORM 查询与 Mapper XML 都显式声明结果字段，不使用 SELECT * 或 alias.*。
+     */
     @Test
     void businessQueriesDeclareTheirResultColumns() {
         List<String> violations = new ArrayList<>();
@@ -58,6 +61,12 @@ class SqlProjectionConventionTest {
                 .isEmpty();
     }
 
+    /**
+     * 列出目录下可能包含 SQL 的 Java 与 XML 文件。
+     *
+     * @param root 待扫描的源码或资源目录
+     * @return 文件路径
+     */
     private static List<Path> sqlBearingFiles(Path root) {
         try (Stream<Path> files = Files.walk(root)) {
             return files
@@ -68,6 +77,12 @@ class SqlProjectionConventionTest {
         }
     }
 
+    /**
+     * 读取源码文件全文。
+     *
+     * @param path 源码文件
+     * @return 文件内容
+     */
     private static String read(Path path) {
         try {
             return Files.readString(path);

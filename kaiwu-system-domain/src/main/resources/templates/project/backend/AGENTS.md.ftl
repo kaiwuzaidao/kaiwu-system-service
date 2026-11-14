@@ -2,10 +2,19 @@
 
 - 本仓库只属于 `${projectCode}`，使用 JDK 21、Spring Boot 4 和
   `boot -> domain -> api` 三模块结构，由 Boot 产出单一可部署制品。
-- 权限码必须在 `@RequirePermission`、前端 `PermissionButton`、`sql/menu.sql` 三处同码，
+- 所有手写 Java 类型、构造器和方法都使用中文 Javadoc，具体格式、命名和说明边界遵守
+  [docs/JAVA_STYLE.md](docs/JAVA_STYLE.md)；不得用复述签名的模板句代替业务语义。
+- 聊天能力须按 `docs/AGENT_CAPABILITIES.md` 显式实现版本化 Handler，复用现有领域服务、
+  BUTTON 权限和资源归属校验；不得扫描 Controller/OpenAPI 自动开放。只读响应限制字段与行数；
+  写任务须经预览、确认及业务变更同事务的幂等账本。生成时所有 Agent 开关保持关闭。
+- 权限码必须在 `@RequirePermission`、前端 `PermissionButton`、`kaiwu/menus.yml` 三处同码，
   由 `bash scripts/check-permission-seed.sh` 校验（CI 门禁，**加接口后必须跑**）。
-  新增受权限保护的接口时，`sql/menu.sql` 必须同批补 BUTTON 节点并导入平台库——
+  新增受权限保护的接口时，`kaiwu/menus.yml` 必须同批补 BUTTON 节点，再用
+  `./kaiwu project sync <本仓路径>` 查看计划、加 `--apply` 写入平台——
   只在运行库里手工建菜单不算数，全新安装时管理员无法把该权限授予任何角色。
+- 受管字典与参数配置写在 `kaiwu/dicts.yml`、`kaiwu/configs.yml`，同样用 `project sync` 同步（只新增、不删除，
+  运行值由运维维护）。
+- 每次改动后、提交前运行 `bash scripts/verify.sh`（只想快速检查用 `--static`）；全部通过才算完成。
   新增**模块**还要把 `permissionPrefix` 登记进 `docs/kaiwu-project-blueprint.json`，
   它是与前端仓库共享的模块契约。
 - 用户可见且需要翻译或运营配置的状态/枚举使用受管字典；内部状态机、协议码和只参与分支
@@ -64,6 +73,10 @@
   删除接口/字段、改字段类型或改已有路径会变红。确属有意的不兼容发布时运行
   `mvn test -Dkaiwu.api-contract.update=true` 刷新快照，并把 diff 一起提交评审。
   新增模块要把 Controller 与 DTO/VO 登记进 `ApiContractTest` 的 `CONTROLLERS`/`PAYLOADS`。
+- 新增或修改业务表、列表/详情/导出/统计接口、Agent 读写能力、定时任务、数据导入时，**先读**
+  `.agents/skills/kaiwu-data-scope/SKILL.md`：菜单权限只决定能不能进功能，不决定能看到哪些行。
+  要先回答「同一菜单下不同用户应该看到不同的行吗」，是则在 `kaiwu/data-scopes.yml` 声明受控资源，
+  否则写进 `exempt` 并附理由；`DataScopeConventionTest` 随 `scripts/verify.sh` 运行。
 - 只从 `StarterContext` 读取已验证用户和项目，禁止信任外部 Access JWT 或任意身份头。
 - 平台地址 `KAIWU_SYSTEM_SERVICE_URI` 的 scheme 决定由谁解析（ADR 0024），本服务没有部署模式开关：
   `http(s)://` 交给底层网络（本地固定地址、Kubernetes Service DNS 都属此类），
@@ -75,6 +88,14 @@
   `notificationClient.send(userId, "标题", "正文", "/相对路径")`。收件人必须是本项目
   成员。它是尽力而为的通知，失败只记日志不抛异常，**业务流程不得依赖它做状态流转**；
   禁止挂在拦截器上或随每个请求触发。
+- 流程类需求（审批、工单、核对等「谁现在要处理什么，办完自动消失」）用 Starter 注入的 `TodoClient`
+  投递统一待办，**不要自建待办表**，也不要用站内信代替：站内信是不可变事实，待办的状态由本服务维护。
+  事项发生时 `open(处理人, 业务键, 标题)`，办完时 `close(业务键)`（或签，关闭所有人）或
+  `close(业务键, 处理人)`（会签，只关一人），事项取消用 `cancel(...)`。业务键是事项唯一键
+  （如 `approval:2026-0001`），同一事项的多位处理人共用；打开时处理人必须是本项目成员。
+  与站内信一样是尽力而为：失败只记日志不抛异常，**业务流程不得依赖它推进状态**，禁止挂在拦截器上。
+  依赖的 `kaiwu-system-starter.version` 需包含 `com.kaiwu.starter.todo.client.TodoClient`，没有就先升级版本再写调用。
+  用法与限制见 CLAUDE.md「统一待办」。
 - 数据库迁移只走内嵌 Flyway：新增
   `kaiwu-${projectCode}-boot/src/main/resources/db/migration/V{n}__desc.sql`
   （版本号唯一、递增），应用启动时 Spring Boot 自动执行，历史记录在 `flyway_schema_history`。
@@ -87,7 +108,8 @@
   不依赖上游；`BoundedQueryConventionTest` 按文件断言，漏写会让构建变红。
 - 每张业务表必须保持蓝图声明的资源范围（约束 `auth.resource-ownership`，MUST）：
   `PROJECT_WIDE` 表由项目权限控制；`OWNER_ONLY` 表的列表、详情、更新和删除还必须绑定
-  `StarterContext.userId()`。主键、归属、逻辑删除和审计字段不得从保存请求体写入；修改范围前先补
+  `StarterContext.userId()`；`DATA_SCOPED` 表（同时含 `owner_user_id` 与 `owner_dept_id`）由 `kaiwu-data-scope`
+  拦截器按角色范围自动过滤，Service 里**不要**再手写归属条件，归属变更只走 `DataScopes.reassign`。主键、归属、逻辑删除和审计字段不得从保存请求体写入；修改范围前先补
   越权反例测试，禁止只靠前端隐藏。
 - ORM 查询必须写出结果列，禁止 `SELECT *` / `alias.*`（约束 `query.explicit-projection`，MUST）：
   加一列就会自动多带一列出去，覆盖索引失效、映射漂移、敏感列外泄同时发生且没有报错。
@@ -98,7 +120,7 @@
 - 运行时日志不得写出凭据与敏感个人信息（约束 `logging.no-sensitive-data`，MUST）：
   只记录标识、长度或掩码值。诊断需要的是「哪个 key 出问题」，不是它的值；
   由 `SensitiveLoggingConventionTest` 把关。
-- 列表导出自行实现，平台不提供通用导出框架，但必须遵守：查询自带 `LIMIT` 并设行数上限
+- Excel 导入导出按需使用 Maven Central 依赖 `com.kaiwuzaidao:kaiwu-excel:${starterVersion}`。读取/模板/写出使用 `ExcelTable`，业务接口、权限、校验与事务由本项目实现；先下载模板，导入返回行号和业务错误，明确定义重复数据策略。列表导出必须遵守：查询自带 `LIMIT` 并设行数上限
   （结果集整体进内存，无上限的全表查询会 OOM）；超限直接报错，禁止静默截断；敏感列留空或
   掩码；复用列表权限码 `{module}:{resource}:list`，不新增导出专用权限码。
 - 抛业务异常时**必须带 messageKey**，否则前端无法把错误翻译成用户界面语言：
@@ -116,3 +138,10 @@
 - 约束强度以 `docs/kaiwu-constraints.json` 为准；只有 WARN/DEFAULT 可通过
   `docs/kaiwu-constraint-waivers.json` 有期限偏离，MUST 不可豁免。
 - 本仓库是一次性生成产物；后续需求在本仓库正常开发，不回到 Kaiwu 重新生成。
+
+## 包结构与契约
+
+遵守 [docs/PACKAGE_STRUCTURE.md](docs/PACKAGE_STRUCTURE.md) 和版本化 `docs/package-layout.json`。
+业务采用 `module/分类/controller|service|repository|mapper|entity|agent`，不插入功能目录。
+Service 接口与 `service/impl` 分离；新增写 DTO 位于 API 的 `dto/request`，查询 DTO 位于 `dto/query`。
+布局门禁随 Maven verify 执行。新分类须更新契约；权限、数据范围与能力审批继续独立验证。

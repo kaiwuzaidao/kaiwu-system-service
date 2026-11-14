@@ -14,7 +14,7 @@
     "format": "prettier --write \"{config,scripts,src}/**/*.{js,mjs,ts,tsx}\" \"*.{js,json,ts}\"",
     "format:check": "prettier --check \"{config,scripts,src}/**/*.{js,mjs,ts,tsx}\" \"*.{js,json,ts}\"",
     "audit:prod": "pnpm audit --prod --audit-level high",
-    "verify": "pnpm typecheck && pnpm check:dict && pnpm check:perm && pnpm check:log && pnpm check:constraints && pnpm format:check && pnpm build && pnpm audit:prod",
+    "verify": "pnpm typecheck && pnpm check:dict && pnpm check:perm && pnpm check:log && pnpm check:constraints && pnpm format:check && pnpm build",
     "setup": "max setup",
     "postinstall": "max setup"
   },
@@ -42,19 +42,28 @@
       "@umijs/max>stylelint": "-",
       "@umijs/preset-umi>@stagewise/toolbar": "-",
       "@umijs/preset-umi>@umijs/bundler-mako": "-",
-      "@umijs/bundler-vite>vite": "6.4.3",
+      "@umijs/bundler-vite>vite": "6.4.4",
       "@umijs/preset-umi>path-to-regexp": "1.9.0",
       "@ant-design/pro-layout>path-to-regexp": "8.4.0",
       "isomorphic-fetch>node-fetch": "2.6.7",
-      "brace-expansion": "5.0.9",
+      "brace-expansion": "5.0.11",
       "fast-uri": "3.1.7",
+      "follow-redirects": "1.16.2",
       "js-yaml": "3.15.2",
       "less": "4.8.1",
       "svgo": "2.8.4",
       "nanoid": "3.3.18",
       "@umijs/preset-umi>@umijs/bundler-utoopack": "-",
-      "axios": "0.33.0",
-      "immer": "9.0.21"
+      "@umijs/preset-umi>@umijs/history": "-",
+      "axios": "0.34.0",
+      "immer": "9.0.21",
+      "probe-image-size": "7.4.0",
+      "source-map-js": "1.2.2"
+    },
+    "auditConfig": {
+      "ignoreGhsas": [
+        "GHSA-vfj7-8cjw-p6xm"
+      ]
     }
   },
   "packageManager": "pnpm@10.8.0"

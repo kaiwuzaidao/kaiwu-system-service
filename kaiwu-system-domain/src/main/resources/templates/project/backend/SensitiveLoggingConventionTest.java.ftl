@@ -48,6 +48,9 @@ class SensitiveLoggingConventionTest {
             "(?i)(password|passwd|secret|token|credential|privatekey|apikey|idcard|idnumber)"
                     + "\\s*[=:：]");
 
+    /**
+     * 验证日志语句不输出凭证、令牌等敏感变量或敏感键名。
+     */
     @Test
     void logStatementsNeverCarryCredentialsOrSensitiveIdentifiers() {
         List<String> offenders = new ArrayList<>();
@@ -105,6 +108,12 @@ class SensitiveLoggingConventionTest {
         return statements;
     }
 
+    /**
+     * 提取一条日志语句中的全部字符串字面量。
+     *
+     * @param statement 日志语句文本
+     * @return 字符串字面量，保持出现顺序
+     */
     private static List<String> literals(String statement) {
         List<String> literals = new ArrayList<>();
         Matcher matcher = STRING_LITERAL.matcher(statement);
@@ -114,10 +123,22 @@ class SensitiveLoggingConventionTest {
         return literals;
     }
 
+    /**
+     * 把跨行的日志语句压成一行，便于在失败信息中展示。
+     *
+     * @param statement 日志语句文本
+     * @return 合并空白后的单行文本
+     */
     private static String oneLine(String statement) {
         return statement.replaceAll("\\s+", " ").trim();
     }
 
+    /**
+     * 列出目录下的全部 Java 源码文件。
+     *
+     * @param root 待扫描的源码目录
+     * @return 源码文件路径
+     */
     private static List<Path> javaSources(Path root) {
         try (Stream<Path> files = Files.walk(root)) {
             return files.filter(path -> path.toString().endsWith(".java")).toList();
@@ -126,6 +147,12 @@ class SensitiveLoggingConventionTest {
         }
     }
 
+    /**
+     * 读取源码文件全文。
+     *
+     * @param path 源码文件
+     * @return 文件内容
+     */
     private static String read(Path path) {
         try {
             return Files.readString(path);

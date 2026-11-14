@@ -23,7 +23,13 @@ discovery locator 自动暴露服务。
 要求逐个传入。Nacos bootstrap 密码与两套 RSA 私钥例外：前者由当前进程环境传入，后者由启动
 脚本仅在内存生成并注入本次进程。
 
-AI Provider 出站默认关闭。启用时必须同时配置
+对象存储（ADR 0039）的出站同样默认关闭：`kaiwu.storage.allowed-hosts`（逗号分隔的 STS 与
+存储主机名）为空时，System 拒绝连接任何存储地址。`kaiwu.storage.egress-proxy-uri` 可选，内网
+存储（如 MinIO）可以直连。等价环境变量为 `KAIWU_STORAGE_ALLOWED_HOSTS` 与
+`KAIWU_STORAGE_EGRESS_PROXY_URI`。阿里云 OSS 的数据面主机按桶名生成子域名
+（`<bucket>.oss-<区域>.aliyuncs.com`），白名单只需登记 `oss-<区域>.aliyuncs.com`。
+
+应用层的 AI Provider 出站默认关闭。启用时必须同时配置
 `kaiwu.ai-provider.allowed-hosts`（逗号分隔的精确目标 DNS 主机名，不接受 IP 或通配符）
 和 `kaiwu.ai-provider.egress-proxy-uri`（受控 HTTP 出站代理，例如
 `http://ai-egress-proxy:3128`）。应用只连接该代理，不直接解析或连接模型域名，以避免
@@ -33,17 +39,22 @@ DNS 重绑定的 resolve-then-connect 竞态。代理必须再次执行目标域
 （Spring relaxed binding）。
 
 本地开发用 Compose 里的 `ai-egress-proxy`（squid）充当这个受控代理，配置在
-`docker/ai-egress-proxy/`。它放在独立的 `ai-egress` profile 中，只在设置了
-`KAIWU_AI_PROVIDER_ALLOWED_HOSTS` 时由 `scripts/kaiwu.sh` 与 `scripts/dev-run.sh`
-自动拉起；未设置时整条 AI 出站保持关闭，一键启动行为不变。代理侧的域名白名单由该环境变量
-在容器启动时生成，与应用侧同一个来源；白名单为空则容器直接退出，不会变成开放代理。
-启用本地 AI：
+`docker/ai-egress-proxy/`。它放在独立的 `ai-egress` profile 中，只在白名单非空时拉起。
+代理侧的域名白名单由同一个环境变量在容器启动时生成，与应用侧同一个来源；白名单为空则容器
+直接退出，不会变成开放代理。
+
+`./kaiwu up`（`scripts/kaiwu.sh`）未设置白名单时默认放行首次引导里的三个预设服务商：
+`api.deepseek.com,dashscope.aliyuncs.com,api.openai.com`，并自动拉起代理，装好即可在对话里
+接入模型。换用其它模型服务时覆盖白名单；要完全关闭 AI 出站，显式设为空字符串：
 
 ```bash
-export KAIWU_AI_PROVIDER_ALLOWED_HOSTS=your-model-host.example.com
-export KAIWU_AI_PROVIDER_EGRESS_PROXY_URI=http://ai-egress-proxy:3128
+export KAIWU_AI_PROVIDER_ALLOWED_HOSTS=your-model-host.example.com   # 覆盖默认白名单
+# export KAIWU_AI_PROVIDER_ALLOWED_HOSTS=                           # 关闭 AI 出站
 ./scripts/kaiwu.sh up
 ```
+
+`scripts/dev-run.sh` 不带默认值，仍需同时设置 `KAIWU_AI_PROVIDER_ALLOWED_HOSTS` 和
+`KAIWU_AI_PROVIDER_EGRESS_PROXY_URI=http://ai-egress-proxy:3128` 才会启用。
 
 Nacos 模式下，在 `kaiwu-compose-dev.yml` 的 `kaiwu.dev-compose` 中配置同一份目标和代理，
 `dev-nacos-run.sh` 会把值同时注入 System 与代理容器，并自动启用 `ai-egress` profile：

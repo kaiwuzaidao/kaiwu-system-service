@@ -1,7 +1,7 @@
 <#noparse>#!/usr/bin/env node
 /**
  * 校验前端权限码符合「权限三端同码」约定：前端按钮、后端 @RequirePermission、
- * sql/menu.sql 的 BUTTON seed 必须是同一个 `{module}:{resource}:{action}`。
+ * kaiwu/menus.yml 的 BUTTON 必须是同一个 `{module}:{resource}:{action}`。
  *
  * 存在的意义：权限码写错在运行时看不出来。
  *   - 前端写错 → 按钮对所有人隐藏，表现为「我没权限」而不是「代码写错了」。
@@ -13,7 +13,7 @@
  *     同一模块下新增 action（如 :export）不需要改任何契约文件；
  *     新增模块必须把 permissionPrefix 登记进该文件，这是有意的显式动作。
  *   - 后端仓库在旁边（KAIWU_SERVICE_DIR，或按 kaiwu-{projectCode}-service 平级定位）时
- *     升级为与真实注解和 menu.sql 逐码比对。
+ *     升级为与真实注解和 kaiwu/menus.yml 逐码比对。
  *
  * 退出码：0 通过；1 发现不一致。
  */
@@ -89,7 +89,7 @@ function readManifest() {
   }
 }
 
-/** 后端仓库里的 @RequirePermission 与 menu.sql seed；缺任一目录返回 null 表示无法比对。 */
+/** 后端仓库里的 @RequirePermission 与 kaiwu/menus.yml；缺任一目录返回 null 表示无法比对。 */
 function readBackendCodes(serviceDir) {
   const javaRoots = readdirSync(serviceDir)
     .filter((entry) => entry.endsWith('-domain'))
@@ -110,12 +110,12 @@ function readBackendCodes(serviceDir) {
     );
   }
 
-  const menuFile = join(serviceDir, 'sql/menu.sql');
+  const menuFile = join(serviceDir, 'kaiwu/menus.yml');
   const seeded = new Set();
   if (existsSync(menuFile)) {
-    // 按「三段冒号字面量」提取，不绑定某种 INSERT 写法——列顺序和换行在后续迁移里会变。
+    // 清单里每个 BUTTON 用一行 `permission: <权限码>` 声明；只认这一种写法，注释里的示例不算。
     for (const match of readFileSync(menuFile, 'utf8').matchAll(
-      /['"]([a-z][a-z0-9-]*:[a-z0-9-]+:[a-z0-9_-]+)['"]/g,
+      /^[ \t-]*permission:[ \t]*['"]?([a-z][a-z0-9-]*:[a-z0-9-]+:[a-z0-9_-]+)['"]?[ \t]*$/gm,
     )) {
       seeded.add(match[1]);
     }
@@ -133,7 +133,12 @@ if (malformed.length > 0) {
   fail('权限码不符合 {module}:{resource}:{action} 格式：', malformed);
 }
 
-const wellFormed = [...frontend].filter(([code]) => CODE.test(code));
+// access:*（项目成员 / 角色授权）与 file:record:*（文件，ADR 0041）是平台提供的权限，页面和接口都在平台，业务后端没有对应注解，
+// 契约文件里也不登记；它们由平台在创建项目时随菜单种入，不参与下面两项比对。
+const PLATFORM_PROVIDED = /^(access:(member|role)|file:record):/;
+const wellFormed = [...frontend].filter(
+  ([code]) => CODE.test(code) && !PLATFORM_PROVIDED.test(code),
+);
 const manifest = readManifest();
 
 if (manifest) {
@@ -151,7 +156,7 @@ if (manifest) {
       undeclared,
       '改法：确认拼写；确属新模块时，往 modules 追加 ' +
         '{"table":"...","moduleCode":"...","permissionPrefix":"mod:res"}，' +
-        '并同步补后端 @RequirePermission 与 sql/menu.sql 的 BUTTON seed。',
+        '并同步补后端 @RequirePermission 与 kaiwu/menus.yml 的 BUTTON。',
     );
   }
 }
@@ -189,16 +194,16 @@ if (notEnforced.length > 0) {
   );
 }
 
-// 后端有注解、menu.sql 无 seed：全新库里管理员看不到这个按钮，无法授权给任何角色。
+// 后端有注解、kaiwu/menus.yml 无 seed：全新库里管理员看不到这个按钮，无法授权给任何角色。
 if (backend.hasMenuFile) {
   const unseeded = [...backend.annotated]
     .filter(([code]) => !backend.seeded.has(code))
     .map(([code, where]) => `${code}  (后端 ${where})`);
   if (unseeded.length > 0) {
     fail(
-      '后端有注解、sql/menu.sql 无 BUTTON seed（管理员无法授权，功能不可用）：',
+      '后端有注解、kaiwu/menus.yml 无 BUTTON 声明（管理员无法授权，功能不可用）：',
       unseeded,
-      '改法：在 sql/menu.sql 补 BUTTON 节点并导入平台库；' +
+      '改法：在 kaiwu/menus.yml 补 BUTTON 节点，再用 `./kaiwu project sync` 同步到平台；' +
         '只在运行库里手工建菜单不算数，全新安装复现不出来。',
     );
   }
@@ -207,7 +212,7 @@ if (backend.hasMenuFile) {
 if (!failed) {
   console.log(
     `[check:perm] 权限三端一致：前端 ${frontend.size} 个权限码与后端注解、` +
-      'menu.sql seed 全部对齐。',
+      'kaiwu/menus.yml 全部对齐。',
   );
 }
 process.exit(failed ? 1 : 0);

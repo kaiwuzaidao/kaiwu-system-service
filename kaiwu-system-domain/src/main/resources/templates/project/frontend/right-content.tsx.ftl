@@ -5,8 +5,21 @@
   LogoutOutlined,
   UserOutlined,
 } from '@ant-design/icons';
-import { App, Avatar, Dropdown, Empty, Modal, Segmented, Skeleton, Tag, Typography } from 'antd';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useIntl, useSelectedRoutes } from '@umijs/max';
+import {
+  App,
+  Avatar,
+  Button,
+  Dropdown,
+  Empty,
+  Modal,
+  Segmented,
+  Skeleton,
+  Tag,
+  Typography,
+} from 'antd';
+import { useEffect, useState } from 'react';
+import LineIcon from '@/components/LineIcon';
 import GlobalSearch from '@/components/GlobalSearch';
 import NotificationBell from '@/components/NotificationBell';
 import { readProjectId } from '@/hooks/useProjectId';
@@ -20,92 +33,78 @@ import {
 } from '@/services/platform';
 
 /**
- * 侧边栏底部区域（ProLayout side 布局下 rightContentRender 渲染在此）。
+ * 顶部操作栏（V5，与平台顶栏一致）：切换项目、全局搜索、站内信与当前用户。
  *
- * 侧边栏只有 216px，搜索条与用户信息横排会把用户名挤到换行，因此分三行：
- * 搜索、切换项目、用户信息 + 站内信。与平台端保持一致。
- *
- * 切换项目是独立一行而不是收进用户菜单：它是跨项目工作时的高频动作，
- * 藏在头像下拉里要点两次才够得着。
- *
- * 这里不显示当前项目名——侧栏 logo 区已经是本项目的名字，再写一次就是
- * 同一个品牌在侧栏出现两回（见 UI 规范禁做第 12 条）。
+ * 桌面端放在内容区顶部的 DesktopHeader 里，窄屏由 ProLayout 自带头部渲染。
+ * 切换项目放在最前面：它是跨项目工作时的高频动作，藏进头像下拉要点两次。
  *
  * 语言切换不在此提供：本应用 supportedLocales 只有 zh-CN，且语言跟随平台
  * 账户偏好（见 config.ts），子应用不另设入口。
  */
 export default function RightContent() {
-  const [user, setUser] = useState<PlatformUser>();
+  const user = usePlatformUser();
   const [switching, setSwitching] = useState(false);
 
+  return (
+    <div className="kaiwu-header-actions">
+      <Button
+        className="kaiwu-project-context"
+        icon={<LineIcon name="layers" size={14} />}
+        onClick={() => setSwitching(true)}
+      >
+        <span className="kaiwu-header-action-label">切换项目</span>
+        <LineIcon name="down" size={14} className="kaiwu-header-caret" />
+      </Button>
+      <GlobalSearch />
+      <NotificationBell />
+      <UserMenu user={user} />
+      <ProjectSwitcher open={switching} onClose={() => setSwitching(false)} />
+    </div>
+  );
+}
+
+/** 读取平台当前用户；取不到时只是不显示用户信息，不影响业务功能。 */
+function usePlatformUser() {
+  const [user, setUser] = useState<PlatformUser>();
   useEffect(() => {
     void fetchCurrentUser()
       .then(setUser)
-      // 取不到用户时只是不显示这块，不影响业务功能。
       .catch(() => undefined);
   }, []);
+  return user;
+}
 
+/** 桌面端顶栏：左侧「分组 / 页面」面包屑，右侧操作区。 */
+export function PageBreadcrumb() {
+  const intl = useIntl();
+  const routes = useSelectedRoutes();
+  // 菜单文案键与 Umi 布局一致：menu.<父级>.<子级>。
+  const names: string[] = [];
+  const labels = routes
+    .map(({ route }) => (route as { name?: string }).name)
+    .filter((name): name is string => Boolean(name))
+    .map((name) => {
+      names.push(name);
+      return intl.formatMessage({ id: `menu.${names.join('.')}`, defaultMessage: name });
+    });
+  const current = labels[labels.length - 1];
+  const group = labels.length > 1 ? labels[labels.length - 2] : undefined;
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 4px' }}>
-      <GlobalSearch block />
-      <ProjectSwitcher open={switching} onClose={() => setSwitching(false)} />
-      <SidebarAction
-        icon={<AppstoreOutlined />}
-        label="切换项目"
-        onClick={() => setSwitching(true)}
-      />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-        <UserMenu user={user} />
-        <NotificationBell compact />
+    <div className="kaiwu-page-breadcrumb">
+      <div className="kaiwu-header-breadcrumb">
+        {group && (
+          <>
+            <span>{group}</span>
+            <span>/</span>
+          </>
+        )}
+        <strong>{current}</strong>
       </div>
     </div>
   );
 }
 
-/** 侧栏底部的行按钮，视觉与下方用户行对齐（同样的高度、圆角与 hover 底色）。 */
-function SidebarAction({
-  icon,
-  label,
-  onClick,
-}: {
-  icon: ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
-  const [hover, setHover] = useState(false);
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onClick();
-        }
-      }}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '6px 6px',
-        borderRadius: 6,
-        cursor: 'pointer',
-        color: hover ? '#4f46e5' : 'rgba(0,0,0,0.65)',
-        background: hover ? 'rgba(79,70,229,0.08)' : 'transparent',
-        transition: 'background .2s, color .2s',
-      }}
-    >
-      <span style={{ display: 'flex', width: 28, justifyContent: 'center', flexShrink: 0 }}>
-        {icon}
-      </span>
-      <span style={{ flex: 1, minWidth: 0 }}>{label}</span>
-    </div>
-  );
-}
-
+/** 账号与 System 一致，统一从右上角进入个人中心和退出登录。 */
 function UserMenu({ user }: { user?: PlatformUser }) {
   const { modal, message } = App.useApp();
   const name = user?.displayName || user?.username || '';
@@ -127,10 +126,11 @@ function UserMenu({ user }: { user?: PlatformUser }) {
     });
   };
 
-  // 切换项目不放进这里：它已在侧栏有独立入口，两处重复只是噪音。
+  // 切换项目不放进这里：顶栏已有独立入口，两处重复只是噪音。
   return (
     <Dropdown
-      placement="topLeft"
+      placement="bottomRight"
+      trigger={['click']}
       menu={{
         items: [
           { key: 'profile', icon: <IdcardOutlined />, label: '个人中心' },
@@ -143,29 +143,18 @@ function UserMenu({ user }: { user?: PlatformUser }) {
         },
       }}
     >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          flex: 1,
-          minWidth: 0,
-          cursor: 'pointer',
-          padding: '4px 6px',
-          borderRadius: 6,
-        }}
-      >
+      <button type="button" className="kaiwu-user-menu kaiwu-header-account" aria-label="个人中心">
         <Avatar
-          size={28}
+          size={26}
+          style={{ background: '#2563eb', color: '#fff' }}
           icon={!name ? <UserOutlined /> : undefined}
-          style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)', flexShrink: 0 }}
         >
           {name ? name.slice(0, 1) : undefined}
         </Avatar>
-        <Typography.Text ellipsis style={{ flex: 1, minWidth: 0 }}>
-          {name || '未登录'}
-        </Typography.Text>
-      </div>
+        <span className="kaiwu-user-menu-copy">
+          <Typography.Text ellipsis={{ tooltip: name }}>{name || '未登录'}</Typography.Text>
+        </span>
+      </button>
     </Dropdown>
   );
 }
@@ -368,9 +357,9 @@ function SwitchCard({ item, mode }: { item: SwitchTarget; mode: ProjectOpenMode 
         padding: 16,
         borderRadius: 8,
         cursor: item.current ? 'default' : 'pointer',
-        border: `1px solid ${active ? '#4f46e5' : '#f0f0f0'}`,
-        background: item.current ? 'rgba(79,70,229,0.04)' : '#fff',
-        boxShadow: active ? '0 4px 12px rgba(79,70,229,0.12)' : 'none',
+        border: `1px solid ${active ? '#3B82F6' : '#E5EBF3'}`,
+        background: item.current ? '#F7FAFC' : '#fff',
+        boxShadow: active ? '0 4px 12px rgba(59,130,246,0.12)' : 'none',
         transition: 'border-color .2s, box-shadow .2s',
       }}
     >
@@ -385,10 +374,8 @@ function SwitchCard({ item, mode }: { item: SwitchTarget; mode: ProjectOpenMode 
           justifyContent: 'center',
           fontSize: 16,
           fontWeight: 600,
-          color: item.platform ? '#fff' : '#4f46e5',
-          background: item.platform
-            ? 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)'
-            : 'rgba(79,70,229,0.08)',
+          color: item.platform ? '#fff' : '#2563EB',
+          background: item.platform ? '#1C3C6C' : '#EFF6FF',
         }}
       >
         {item.platform ? <AppstoreOutlined /> : item.name.slice(0, 1)}
@@ -412,7 +399,7 @@ function SwitchCard({ item, mode }: { item: SwitchTarget; mode: ProjectOpenMode 
           {item.caption}
         </Typography.Text>
       </div>
-      {item.current && <CheckCircleFilled style={{ color: '#4f46e5', flexShrink: 0 }} />}
+      {item.current && <CheckCircleFilled style={{ color: '#3B82F6', flexShrink: 0 }} />}
     </div>
   );
 }

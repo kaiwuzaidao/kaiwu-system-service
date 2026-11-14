@@ -19,6 +19,7 @@ public final class PageBounds {
     /** 单页最大行数。业务确有更大需求时，改这里并在项目 ADR 里写明原因和内存评估。 */
     public static final long MAX_SIZE = 100;
 
+    /** 防止创建只提供静态校验能力的工具类。 */
     private PageBounds() {
     }
 
@@ -48,6 +49,11 @@ public final class PageBounds {
         }
     }
 
+    /**
+     * 创建统一的分页参数越界异常，避免不同入口返回不一致的错误契约。
+     *
+     * @return 可安全返回给客户端的 HTTP 400 业务异常
+     */
     private static ApiException outOfRange() {
         return new ApiException(
                 HttpStatus.BAD_REQUEST, "分页参数超出允许范围", "error.common.pageOutOfRange");

@@ -11,4 +11,6 @@ public record OnlineSessionView(
         LocalDateTime createdAt,
         LocalDateTime lastSeenAt,
         LocalDateTime expiresAt,
-        LocalDateTime revokedAt) {}
+        LocalDateTime revokedAt,
+        String sessionSource,
+        String clientName) {}

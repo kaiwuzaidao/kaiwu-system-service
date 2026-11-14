@@ -6,3 +6,6 @@
 
 本目录不是服务发现，也不会由平台自动改写。每个文件都应进入部署评审与版本管理；密钥不得
 写入路由文件。
+
+本机体验时，`./kaiwu project-up` 会把业务仓的 `deploy/server/gateway-route.yml` 原样复制为
+`<projectCode>.yml` 并重载 Gateway；`./kaiwu project-down <projectCode>` 删除该文件。

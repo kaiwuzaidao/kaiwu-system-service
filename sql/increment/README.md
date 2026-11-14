@@ -1,11 +1,10 @@
 # Flyway 迁移
 
-- `V1__kaiwu_baseline.sql` 是 Kaiwu 全新项目的完整数据库基线。
-- 下一次数据库变化从 `V2__description.sql` 开始追加，并同步更新 `../schema.sql`。
-- 历史开发库若保留了基线压缩前的更高版本记录，由应用内置数据校准兼容；不得放宽
-  Flyway 的 missing migration 校验，也不得对公开基线执行 repair。
-- 公开发布后的 migration 不可修改；修正只能追加更高版本。
-- 本基线不兼容旧开发数据库，切换时应重建数据库。
+- 全新安装从 `V127__kaiwu_baseline.sql` 初始化，MySQL 和达梦使用相同的起点。下一次变更从 V128 追加，更新两种方言、Helm 副本与累计快照 `../schema.sql`。
+- 已有安装按 [升级说明](../../docs/UPGRADING.md#数据库) 切换。历史重置由操作者手工执行。
+- 公开发布后的 migration 不可修改；修正只能追加更高版本。唯一例外是 v0.2.0 发布前的
+  一次基线压缩，范围、条件与此后的规则见
+  [ADR 0047](../../docs/adr/0047-migration-baseline-squash.md)；该例外不构成先例。
 - 迁移必须确定、前向并在真实 MySQL 上验证；不要求所有版本可重复执行。普遍使用
   `IF NOT EXISTS` 会掩盖错误存量结构。只有启动自举、repeatable migration 或明确需要重试的
   seed/补偿步骤才要求幂等，并在脚本中说明原因。

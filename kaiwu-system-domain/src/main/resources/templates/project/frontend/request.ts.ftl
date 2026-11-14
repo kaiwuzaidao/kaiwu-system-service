@@ -77,7 +77,7 @@ function showSessionNotice(): void {
   link.textContent = '前往 Kaiwu 平台';
   link.style.cssText = [
     'display:inline-block',
-    'background:#4f46e5',
+    'background:#3B82F6',
     'color:#fff',
     'padding:7px 16px',
     'border-radius:6px',

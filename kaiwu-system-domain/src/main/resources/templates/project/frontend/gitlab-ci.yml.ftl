@@ -9,7 +9,7 @@ default:
   tags: [docker]
 
 # 所有外部镜像都走变量，默认值是公共镜像，任何人 clone 下来就能跑。
-# 内网/离线环境把同名变量配到 GitLab 的 group 或 project 级即可整体改指到私有
+# 私有网络或离线环境把同名变量配到 GitLab 的 group 或 project 级即可整体改指到私有
 # 仓库——CI 变量优先级高于本文件的 variables，不需要改这个文件。
 variables:
   GIT_DEPTH: "20"
@@ -38,8 +38,8 @@ verify:configuration:
     - test -f ci.env
     - . ./ci.env
     - test -n "$APP_NAME"
-    - test -n "$HARBOR_PROJECT"
-    - test -n "$HARBOR_REGISTRY"
+    - test -n "$IMAGE_NAMESPACE"
+    - test -n "$IMAGE_REGISTRY"
 
 build:web:
   stage: build
@@ -62,7 +62,7 @@ build:web:
     expire_in: 1 day
     paths: [dist/, nginx.conf]
 
-image:push-harbor:
+image:push:
   stage: image
   image: $DOCKER_CLI_IMAGE
   services:
@@ -76,11 +76,11 @@ image:push-harbor:
     - job: build:web
       artifacts: true
   before_script:
-    - echo "$HARBOR_PASSWORD" | docker login "$HARBOR_REGISTRY" -u "$HARBOR_USER" --password-stdin
+    - echo "$IMAGE_REGISTRY_PASSWORD" | docker login "$IMAGE_REGISTRY" -u "$IMAGE_REGISTRY_USER" --password-stdin
   script:
     - . ./ci.env
     - tag="${CI_COMMIT_TAG:-${CI_COMMIT_REF_SLUG}-${CI_PIPELINE_IID}-${CI_COMMIT_SHORT_SHA}}"
-    - image="$HARBOR_REGISTRY/${HARBOR_PROJECT}/${APP_NAME}:$tag"
+    - image="$IMAGE_REGISTRY/${IMAGE_NAMESPACE}/${APP_NAME}:$tag"
     - |
       cat >Dockerfile.ci <<DFEOF
       FROM ${WEB_RUNTIME_IMAGE}
@@ -97,22 +97,21 @@ image:push-harbor:
     - test -n "$digest"
     - printf 'IMAGE=%s\nIMAGE_DIGEST=%s\nAPP_NAME=%s\n' "$image" "$digest" "$APP_NAME" >image.env
   after_script:
-    - docker logout "$HARBOR_REGISTRY" || true
+    - docker logout "$IMAGE_REGISTRY" || true
   artifacts:
     reports:
       dotenv: image.env
     expire_in: 30 days
 
 # 回写 GitOps 仓库的镜像 digest，由 ArgoCD 应用 </#noparse>${projectCode}<#noparse>-admin-test 同步到集群。
-# 实现与 platform/ci-templates 的 node-web-gitops.yml 保持一致；本仓库未 include
-# 该模板（构建方式不同），故在此内联。
+# 自包含实现，不依赖外部 CI 模板。
 deploy:gitops:dev:
   stage: sync
   image: $UTIL_IMAGE
   # 必须把安全门禁列进 needs：本任务是 DAG 任务，只靠 stage 顺序拦不住它——
   # 只要 needs 里的任务跑完就会启动，security stage 还没跑也照样部署。
   needs:
-    - job: image:push-harbor
+    - job: image:push
       artifacts: true
     - job: secrets
       artifacts: false
@@ -120,8 +119,8 @@ deploy:gitops:dev:
       artifacts: false
   variables:
     GIT_STRATEGY: none
-    # 不能复用 GITOPS_DEV_FILE：该变量在 group 级已定义（指向 miniprogram），
-    # 而 .gitlab-ci.yml 的 variables 优先级低于 group 变量，会被覆盖。
+    # 用项目专属变量名：.gitlab-ci.yml 的 variables 优先级低于 group 级同名变量，
+    # 通用名字容易被上层配置覆盖。
     PROJECT_GITOPS_FILE: "apps/</#noparse>${projectCode}<#noparse>-admin/overlays/test/kustomization.yaml"
   before_script:
     - apk add --no-cache git
@@ -129,7 +128,7 @@ deploy:gitops:dev:
     - 'test -n "$GITOPS_PUSH_TOKEN" || { echo "Missing protected CI variable: GITOPS_PUSH_TOKEN"; exit 1; }'
     - 'test -n "$GITOPS_REPO_PATH" || { echo "Missing CI variable: GITOPS_REPO_PATH"; exit 1; }'
   script:
-    # APP_NAME 由 image:push-harbor 经 dotenv artifact 传入；此任务 GIT_STRATEGY=none，
+    # APP_NAME 由 image:push 经 dotenv artifact 传入；此任务 GIT_STRATEGY=none，
     # 工作目录没有 ci.env，不能在这里 source。
     - test -n "$APP_NAME"
     - git clone --depth 1 "https://${GITOPS_PUSH_USER:-gitops-ci}:${GITOPS_PUSH_TOKEN}@${CI_SERVER_HOST}/${GITOPS_REPO_PATH}.git" gitops
@@ -160,16 +159,14 @@ secrets:
 
 dependencies:
   stage: security
-  # 内网 runner 拉不到 Docker Hub，改用 Harbor 同步的副本。
   image:
     name: $TRIVY_IMAGE
     entrypoint: [""]
   # 同 secrets：只扫源码与依赖清单，不扫构建产物。
   dependencies: []
   variables:
-    # 漏洞库的源：mirror.gcr.io 内网不可达；ghcr.io 能建连但拉 112MB 必被
-    # 对端掐断（PROTOCOL_ERROR，2026-09-12 连续三次重试全败）。同一份库
-    # AWS ECR Public 也有，实测 4.7MiB/s、29 秒拉完，改用它。
+    # 漏洞库的源：mirror.gcr.io、ghcr.io 在部分网络下不可达或下载大文件时被中断，
+    # 同一份库 AWS ECR Public 也有，下载更稳定。
     TRIVY_DB_REPOSITORY: "public.ecr.aws/aquasecurity/trivy-db:2"
     TRIVY_TIMEOUT: "15m"
   # 漏洞库有 100 MB 以上，中途被对端掐断是常态（PROTOCOL_ERROR、
@@ -198,9 +195,8 @@ image-vulnerabilities:
     name: $TRIVY_IMAGE
     entrypoint: [""]
   variables:
-    # 漏洞库的源：mirror.gcr.io 内网不可达；ghcr.io 能建连但拉 112MB 必被
-    # 对端掐断（PROTOCOL_ERROR，2026-09-12 连续三次重试全败）。同一份库
-    # AWS ECR Public 也有，实测 4.7MiB/s、29 秒拉完，改用它。
+    # 漏洞库的源：mirror.gcr.io、ghcr.io 在部分网络下不可达或下载大文件时被中断，
+    # 同一份库 AWS ECR Public 也有，下载更稳定。
     TRIVY_DB_REPOSITORY: "public.ecr.aws/aquasecurity/trivy-db:2"
     TRIVY_TIMEOUT: "15m"
   # 漏洞库有 100 MB 以上，中途被对端掐断是常态（PROTOCOL_ERROR、

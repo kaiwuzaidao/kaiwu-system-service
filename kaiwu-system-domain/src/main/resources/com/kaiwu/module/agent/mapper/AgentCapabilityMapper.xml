@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kaiwu.module.agent.mapper.AgentCapabilityMapper">
+  <select id="countProjectAdmin" resultType="int">
+    SELECT COUNT(*) FROM sys_project_member m
+    JOIN sys_project_member_role mr ON mr.project_id = m.project_id AND mr.user_id = m.user_id
+    JOIN sys_project_role r ON r.id = mr.role_id AND r.project_id = m.project_id
+    WHERE m.project_id = #{projectId} AND m.user_id = #{userId}
+      AND m.status = 'ACTIVE' AND r.status = 'ACTIVE' AND r.role_code = 'project-admin'
+  </select>
+</mapper>

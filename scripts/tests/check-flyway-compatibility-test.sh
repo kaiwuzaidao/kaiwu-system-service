@@ -28,4 +28,23 @@ if DB_HOST=mysql DB_PORT=3306 DB_NAME="invalid-name" DB_USER=kaiwu DB_PASSWORD=t
 fi
 grep -q "数据库名只能包含字母、数字和下划线" "$output_file"
 
+# 用只读探针替代 mysql。任何额外命令或非 SELECT 语句都会失败。
+mkdir "$fixture_dir/bin" "$fixture_dir/v127"
+touch "$fixture_dir/v127/V127__kaiwu_baseline.sql"
+cat > "$fixture_dir/bin/mysql" <<'MYSQL'
+#!/bin/sh
+for query do :; done
+case "$query" in
+  'SELECT COUNT(*) FROM information_schema.TABLES'*) echo 1 ;;
+  'SELECT CONCAT('*'FROM flyway_schema_history'*) echo "$TEST_HISTORY" ;;
+  *) exit 91 ;;
+esac
+MYSQL
+chmod +x "$fixture_dir/bin/mysql"
+export PATH="$fixture_dir/bin:$PATH" DB_HOST=localhost DB_PORT=3306 DB_NAME=crm DB_USER=test DB_PASSWORD=test
+for item in 44:v44 90:v45-v126 127:v127; do
+  if TEST_HISTORY="${item%:*}:1" "$checker" "$fixture_dir/v127" >"$output_file" 2>&1; then exit 1; fi
+  grep -Fq "docs/UPGRADING.md#${item#*:}" "$output_file"
+done
+TEST_HISTORY=127:0 "$checker" "$fixture_dir/v127"
 echo "Flyway 版本线兼容检查测试通过。"

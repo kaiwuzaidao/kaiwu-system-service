@@ -1,6 +1,7 @@
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import {
   ModalForm,
+  PageContainer,
   ProForm,
   ProFormText,
   ProTable,
@@ -9,7 +10,8 @@ import {
 } from '@ant-design/pro-components';
 import { App, Popconfirm, Space } from 'antd';
 import { useIntl } from '@umijs/max';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useProjectConfigNumber } from '@/hooks/useProjectConfig';
 import ManagedDictSelect from '@/components/ManagedDictSelect';
 import ManagedDictText from '@/components/ManagedDictText';
 import PermissionButton from '@/components/PermissionButton';
@@ -18,6 +20,13 @@ import { create${table.entityName}, delete${table.entityName}, page${table.entit
 export default function ${table.entityName}Page() {
   const { message } = App.useApp();
   const intl = useIntl();
+  const configuredPageSize = useProjectConfigNumber('common.table.page_size', 20);
+  const safePageSize =
+    Number.isInteger(configuredPageSize) && configuredPageSize >= 5 && configuredPageSize <= 200
+      ? configuredPageSize
+      : 20;
+  const [pageSize, setPageSize] = useState(safePageSize);
+  useEffect(() => setPageSize(safePageSize), [safePageSize]);
   const actionRef = useRef<ActionType>();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Record<string, unknown>>();
@@ -65,11 +74,17 @@ export default function ${table.entityName}Page() {
   ];
 
   return (
-    <>
+    <PageContainer title={intl.formatMessage({ id: 'menu.${moduleCode}' })}>
       <ProTable<Record<string, unknown>>
         rowKey="${pkField}"
+        scroll={{ x: 'max-content' }}
         actionRef={actionRef}
         columns={columns}
+        pagination={{
+          pageSize,
+          showSizeChanger: true,
+          onShowSizeChange: (_, size) => setPageSize(size),
+        }}
         request={async (params) => {
           const page = await page${table.entityName}({
             ...params,
@@ -133,6 +148,6 @@ export default function ${table.entityName}Page() {
 </#if>
 </#list>
       </ModalForm>
-    </>
+    </PageContainer>
   );
 }

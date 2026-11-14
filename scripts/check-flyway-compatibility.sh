@@ -29,6 +29,7 @@ if [ "$highest_version" -eq 0 ]; then
   exit 2
 fi
 
+legacy_history=1
 if [ "${2+x}" = x ]; then
   current_version="$2"
 else
@@ -75,14 +76,21 @@ else
   if [ "$history_exists" -eq 0 ]; then
     current_version=""
   else
-    if ! current_version="$(MYSQL_PWD="$DB_PASSWORD" mysql --protocol=TCP \
+    if ! summary="$(MYSQL_PWD="$DB_PASSWORD" mysql --protocol=TCP \
       -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" "$DB_NAME" -Nse \
-      "SELECT COALESCE(MAX(CAST(version AS UNSIGNED)), 0) FROM flyway_schema_history WHERE success = 1" \
+      "SELECT CONCAT(COALESCE(MAX(CASE WHEN success=1 THEN CAST(version AS UNSIGNED) END),0), ':',
+         COALESCE(MAX(CASE WHEN CAST(version AS UNSIGNED)<127 OR
+          (version='127' AND NOT (type='BASELINE' OR (type='SQL' AND script='V127__kaiwu_baseline.sql')))
+          THEN 1 ELSE 0 END),0)) FROM flyway_schema_history WHERE version IS NOT NULL" \
       2>&1)"; then
       echo "读取 flyway_schema_history 失败：" >&2
-      echo "${current_version}" >&2
+      echo "${summary}" >&2
       exit 2
     fi
+    case "$summary" in
+      *:0|*:1) current_version=${summary%:*}; legacy_history=${summary##*:} ;;
+      *) echo "无法识别迁移历史摘要" >&2; exit 2 ;;
+    esac
   fi
 fi
 
@@ -100,5 +108,16 @@ if [ "$current_version" -gt "$highest_version" ]; then
   echo "数据库迁移版本 ${current_version} 高于当前代码最高版本 ${highest_version}。" >&2
   echo "该数据库来自不兼容的旧迁移线；继续启动会造成运行期 SQL 错误。" >&2
   echo "开发环境请先备份并重建开发数据库；生产或重要环境必须停止并制定前向升级方案。" >&2
+  exit 1
+fi
+
+if [ -f "$migrations_dir/V127__kaiwu_baseline.sql" ] && [ "$legacy_history" = 1 ]; then
+  if [ "$current_version" -le 44 ]; then
+    echo "旧历史 V${current_version}：请新建数据库。见 docs/UPGRADING.md#v44" >&2
+  elif [ "$current_version" -lt 127 ]; then
+    echo "旧历史 V${current_version}：先用旧版迁至 V127。见 docs/UPGRADING.md#v45-v126" >&2
+  else
+    echo "旧历史 V${current_version}：须核对并手工重置历史。见 docs/UPGRADING.md#v127" >&2
+  fi
   exit 1
 fi

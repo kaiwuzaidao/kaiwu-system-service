@@ -1,5 +1,6 @@
 package com.kaiwu.module.project.mapper;
 
+import com.kaiwu.module.project.entity.ProjectMemberCandidateRow;
 import com.kaiwu.module.project.entity.ProjectMemberJoinRow;
 import com.kaiwu.module.project.entity.ProjectMenuRow;
 import com.kaiwu.module.project.entity.ProjectRoleRow;
@@ -30,13 +31,25 @@ import org.apache.ibatis.annotations.Update;
 @Mapper
 public interface ProjectMapper {
 
+    /** 保留并发的项目资料编辑，在 SQL 中复核内置标记和项目状态。 */
+    @Update("UPDATE sys_project SET backend_url=#{url}, backend_label=#{label}, service_url=#{service}, "
+            + "updated_at=CURRENT_TIMESTAMP WHERE id=#{id} AND built_in=0 AND status='ACTIVE'")
+    int updateEntry(
+            @Param("id") String id,
+            @Param("url") String url,
+            @Param("label") String label,
+            @Param("service") String service);
+
     @Select(
             """
             SELECT COUNT(*) FROM sys_project
             WHERE (#{keyword} IS NULL
                    OR project_code LIKE #{keyword} OR project_name LIKE #{keyword})
+              AND (#{status} IS NULL OR status = #{status})
+              AND (#{builtIn} IS NULL OR built_in = #{builtIn})
             """)
-    Long countProjects(@Param("keyword") String keyword);
+    Long countProjects(
+            @Param("keyword") String keyword, @Param("status") String status, @Param("builtIn") Boolean builtIn);
 
     @Select(
             """
@@ -47,11 +60,17 @@ public interface ProjectMapper {
             FROM sys_project
             WHERE (#{keyword} IS NULL
                    OR project_code LIKE #{keyword} OR project_name LIKE #{keyword})
+              AND (#{status} IS NULL OR status = #{status})
+              AND (#{builtIn} IS NULL OR built_in = #{builtIn})
             ORDER BY built_in DESC, created_at DESC, id DESC
             LIMIT #{size} OFFSET #{offset}
             """)
     List<ProjectRow> pageProjects(
-            @Param("keyword") String keyword, @Param("size") long size, @Param("offset") long offset);
+            @Param("keyword") String keyword,
+            @Param("status") String status,
+            @Param("builtIn") Boolean builtIn,
+            @Param("size") long size,
+            @Param("offset") long offset);
 
     @Select(
             """
@@ -75,6 +94,36 @@ public interface ProjectMapper {
             FROM sys_project WHERE id = #{projectId}
             """)
     ProjectRow findProject(@Param("projectId") String projectId);
+
+    @Select(
+            """
+            SELECT id, project_code, project_name, description, status, built_in,
+                   created_by, package_name, repository_url, gitlab_project_id,
+                   default_branch, backend_url, backend_label, service_url,
+                   created_at, updated_at
+            FROM sys_project WHERE id = #{projectId} FOR UPDATE
+            """)
+    ProjectRow findProjectForUpdate(@Param("projectId") String projectId);
+
+    /** 同一事务同步旧项目服务地址的 default 登记。 */
+    @Insert(
+            databaseId = "dm",
+            value =
+                    """
+            MERGE INTO sys_project_backend_service t
+            USING (SELECT id AS project_id, service_url FROM sys_project WHERE id=#{projectId}) s
+            ON (t.project_id=s.project_id AND t.service_code='default')
+            WHEN MATCHED THEN UPDATE SET t.service_url=s.service_url,t.updated_at=CURRENT_TIMESTAMP
+            WHEN NOT MATCHED THEN INSERT (project_id,service_code,service_url,status,created_at,updated_at)
+            VALUES (s.project_id,'default',s.service_url,'ENABLED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+            """)
+    @Insert(
+            """
+            INSERT INTO sys_project_backend_service(project_id,service_code,service_url,status,created_at,updated_at)
+            SELECT id,'default',service_url,'ENABLED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP FROM sys_project WHERE id=#{projectId}
+            ON DUPLICATE KEY UPDATE service_url=VALUES(service_url),updated_at=CURRENT_TIMESTAMP
+            """)
+    int syncDefaultBackendService(@Param("projectId") String projectId);
 
     @Select("SELECT COUNT(*) FROM sys_project WHERE project_code = #{code}")
     int countProjectCode(@Param("code") String code);
@@ -129,6 +178,9 @@ public interface ProjectMapper {
             @Param("backendLabel") String backendLabel,
             @Param("serviceUrl") String serviceUrl);
 
+    @Update("UPDATE sys_project SET project_name = #{name}, updated_at = CURRENT_TIMESTAMP WHERE id = #{id}")
+    int updateProjectName(@Param("id") String id, @Param("name") String name);
+
     @Update("UPDATE sys_project SET status = #{status}, updated_at = CURRENT_TIMESTAMP WHERE id = #{id}")
     int updateProjectStatus(@Param("id") String id, @Param("status") String status);
 
@@ -142,6 +194,16 @@ public interface ProjectMapper {
             ORDER BY m.created_at, m.user_id
             """)
     List<ProjectMemberJoinRow> findMembers(@Param("projectId") String projectId);
+
+    @Select(
+            """
+            SELECT m.project_id, m.user_id, u.username, u.display_name, m.status,
+                   m.created_at, m.updated_at
+            FROM sys_project_member m
+            JOIN sys_user u ON u.id = m.user_id
+            WHERE m.project_id = #{projectId} AND m.user_id = #{userId}
+            """)
+    ProjectMemberJoinRow findMember(@Param("projectId") String projectId, @Param("userId") String userId);
 
     @Select(
             """
@@ -163,6 +225,47 @@ public interface ProjectMapper {
     @Select("SELECT COUNT(*) FROM sys_user WHERE id = #{userId}")
     int countUser(@Param("userId") String userId);
 
+    /** 按登录名精确查找启用用户的 ID；不存在或已停用返回 null。 */
+    @Select("SELECT CAST(id AS CHAR) FROM sys_user WHERE username = #{username} AND status = 'ENABLED' LIMIT 1")
+    String findEnabledUserIdByUsername(@Param("username") String username);
+
+    /** 选人：只返回启用用户的最少字段；关键字匹配登录名与显示名，排除已是该项目成员的用户。 */
+    @Select(
+            """
+            SELECT u.id AS user_id, u.username, u.display_name
+            FROM sys_user u
+            WHERE u.status = 'ENABLED'
+              AND (u.username LIKE CONCAT('%', #{keyword}, '%') OR u.display_name LIKE CONCAT('%', #{keyword}, '%'))
+              AND NOT EXISTS (
+                  SELECT 1 FROM sys_project_member m WHERE m.project_id = #{projectId} AND m.user_id = u.id)
+            ORDER BY u.username
+            LIMIT #{limit}
+            """)
+    List<ProjectMemberCandidateRow> findMemberCandidates(
+            @Param("projectId") String projectId, @Param("keyword") String keyword, @Param("limit") int limit);
+
+    @Insert(
+            databaseId = "dm",
+            value =
+                    """
+            MERGE INTO sys_project_member t
+            USING (
+            SELECT incoming.project_id, incoming.user_id, incoming.status, incoming.created_at, incoming.updated_at, (SELECT existing.project_id FROM sys_project_member existing WHERE (existing.project_id = incoming.project_id AND existing.user_id = incoming.user_id)) AS match_project_id, (SELECT existing.user_id FROM sys_project_member existing WHERE (existing.project_id = incoming.project_id AND existing.user_id = incoming.user_id)) AS match_user_id
+            FROM (
+            SELECT #{projectId} AS project_id,
+                   #{userId} AS user_id,
+                   #{status} AS status,
+                   CURRENT_TIMESTAMP AS created_at,
+                   CURRENT_TIMESTAMP AS updated_at
+            FROM dual
+            ) incoming
+            ) s
+            ON (t.project_id = s.match_project_id AND t.user_id = s.match_user_id)
+            WHEN MATCHED THEN UPDATE SET t.status = s.status,
+                t.updated_at = CURRENT_TIMESTAMP
+            WHEN NOT MATCHED THEN INSERT (project_id, user_id, status, created_at, updated_at)
+            VALUES (s.project_id, s.user_id, s.status, s.created_at, s.updated_at)
+            """)
     @Insert(
             """
             INSERT INTO sys_project_member
@@ -219,6 +322,16 @@ public interface ProjectMapper {
             WHERE project_id = #{projectId} AND id = #{roleId}
             """)
     ProjectRoleRow findRole(@Param("projectId") String projectId, @Param("roleId") String roleId);
+
+    @Select(
+            """
+            SELECT id, project_id, role_code, role_name, description, status,
+                   built_in, created_at, updated_at
+            FROM sys_project_role
+            WHERE project_id = #{projectId} AND id = #{roleId}
+            FOR UPDATE
+            """)
+    ProjectRoleRow findRoleForUpdate(@Param("projectId") String projectId, @Param("roleId") String roleId);
 
     @Select(
             """
@@ -316,6 +429,17 @@ public interface ProjectMapper {
 
     @Select(
             """
+            SELECT id, project_id, parent_id, menu_name, menu_name_key, menu_type,
+                   route_path, component_path, permission_code, icon, sort_no,
+                   visible, status, created_at, updated_at
+            FROM sys_project_menu
+            WHERE project_id = #{projectId} AND id = #{menuId}
+            FOR UPDATE
+            """)
+    ProjectMenuRow findMenuForUpdate(@Param("projectId") String projectId, @Param("menuId") String menuId);
+
+    @Select(
+            """
             SELECT COUNT(*) FROM sys_project_menu
             WHERE project_id = #{projectId} AND permission_code = #{permissionCode}
               AND (#{excludedId} IS NULL OR id <> #{excludedId})
@@ -364,6 +488,43 @@ public interface ProjectMapper {
      * <p>同一项目重复生成时更新原节点；{@code icon} 与 {@code menu_name_key} 不在更新列表里，
      * 是有意的——它们是管理员的人工设置，不该被一次重新生成冲掉。</p>
      */
+    @Update(
+            databaseId = "dm",
+            value =
+                    """
+            MERGE INTO sys_project_menu t
+            USING (
+            SELECT incoming.id, incoming.project_id, incoming.parent_id, incoming.menu_name, incoming.menu_type, incoming.route_path, incoming.component_path, incoming.permission_code, incoming.sort_no, incoming.visible, incoming.status, incoming.created_at, incoming.updated_at, (SELECT existing.id FROM sys_project_menu existing WHERE (existing.id = incoming.id) OR (existing.project_id = incoming.project_id AND existing.permission_code = incoming.permission_code)) AS match_id
+            FROM (
+            SELECT #{id} AS id,
+                   #{projectId} AS project_id,
+                   #{parentId} AS parent_id,
+                   #{menuName} AS menu_name,
+                   #{menuType} AS menu_type,
+                   #{routePath} AS route_path,
+                   #{componentPath} AS component_path,
+                   #{permissionCode} AS permission_code,
+                   #{sortNo} AS sort_no,
+                   1 AS visible,
+                   'ACTIVE' AS status,
+                   CURRENT_TIMESTAMP AS created_at,
+                   CURRENT_TIMESTAMP AS updated_at
+            FROM dual
+            ) incoming
+            ) s
+            ON (t.id = s.match_id)
+            WHEN MATCHED THEN UPDATE SET t.parent_id = s.parent_id,
+                t.menu_name = s.menu_name,
+                t.menu_type = s.menu_type,
+                t.route_path = s.route_path,
+                t.component_path = s.component_path,
+                t.sort_no = s.sort_no,
+                t.visible = 1,
+                t.status = 'ACTIVE',
+                t.updated_at = CURRENT_TIMESTAMP
+            WHEN NOT MATCHED THEN INSERT (id, project_id, parent_id, menu_name, menu_type, route_path, component_path, permission_code, sort_no, visible, status, created_at, updated_at)
+            VALUES (s.id, s.project_id, s.parent_id, s.menu_name, s.menu_type, s.route_path, s.component_path, s.permission_code, s.sort_no, s.visible, s.status, s.created_at, s.updated_at)
+            """)
     @Update(
             """
             INSERT INTO sys_project_menu
@@ -440,6 +601,22 @@ public interface ProjectMapper {
     @Delete("DELETE FROM sys_project_menu WHERE id = #{menuId}")
     int deleteMenu(@Param("menuId") String menuId);
 
+    @Insert(
+            databaseId = "dm",
+            value =
+                    """
+            MERGE INTO sys_project_role_menu t
+            USING (
+            SELECT #{projectId} AS project_id,
+                   #{roleId} AS role_id,
+                   #{menuId} AS menu_id,
+                   CURRENT_TIMESTAMP AS created_at
+            FROM dual
+            ) s
+            ON ((t.project_id = s.project_id AND t.role_id = s.role_id AND t.menu_id = s.menu_id))
+            WHEN NOT MATCHED THEN INSERT (project_id, role_id, menu_id, created_at)
+            VALUES (s.project_id, s.role_id, s.menu_id, s.created_at)
+            """)
     @Insert(
             """
             INSERT IGNORE INTO sys_project_role_menu (project_id, role_id, menu_id, created_at)

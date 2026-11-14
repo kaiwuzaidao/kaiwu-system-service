@@ -188,7 +188,7 @@ server:
 
 spring:
   datasource:
-    url: jdbc:mysql://mysql:3306/kaiwu_platform?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://mysql:3306/kaiwu_platform?useUnicode=true&characterEncoding=utf8&connectionTimeZone=Asia/Shanghai&forceConnectionTimeZoneToSession=true
     username: kaiwu
     password: ${KAIWU_MYSQL_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -205,9 +205,6 @@ kaiwu:
     encryption-key: ${KAIWU_CONFIG_ENCRYPTION_KEY}
   codegen:
     artifact-root: ${KAIWU_ARTIFACT_ROOT:/var/lib/kaiwu/artifacts}
-    gitlab:
-      base-url: ${KAIWU_GITLAB_URL:}
-      token: ${KAIWU_GITLAB_TOKEN:}
   auth:
     access-private-key: ${KAIWU_ACCESS_PRIVATE_KEY}
     bootstrap-admin-password: ${KAIWU_BOOTSTRAP_ADMIN_PASSWORD}
@@ -224,6 +221,8 @@ kaiwu:
       - /api/hello
       - /api/auth/login
       - /api/auth/refresh
+      - /api/auth/device/start
+      - /api/auth/device/token
       - /api/internal/**
       - /actuator/health
       - /actuator/health/**
@@ -262,7 +261,7 @@ spring:
             - id: system-public-auth
               uri: ${KAIWU_SYSTEM_SERVICE_URI}
               predicates:
-                - Path=/api/auth/login,/api/auth/refresh
+                - Path=/api/auth/login,/api/auth/refresh,/api/auth/device/start,/api/auth/device/token
                 - Method=POST
               metadata:
                 accessMode: PUBLIC
@@ -270,7 +269,7 @@ spring:
             - id: system-platform
               uri: ${KAIWU_SYSTEM_SERVICE_URI}
               predicates:
-                - Path=/api/auth/logout,/api/auth/me,/api/auth/me/locale,/api/auth/menus,/api/auth/password,/api/platform/**,/api/users/**,/api/projects/**,/api/current/**,/api/metadata/**,/api/ai/**,/api/project-generations/**,/api/gitlab/**,/api/logs/**,/api/org/**,/api/scheduler/**,/api/search
+                - Path=/api/auth/logout,/api/auth/me,/api/auth/me/locale,/api/auth/menus,/api/auth/password,/api/auth/device/*,/api/auth/device/*/approve,/api/auth/device/*/deny,/api/platform/**,/api/users/**,/api/projects/**,/api/current/**,/api/metadata/**,/api/ai/**,/api/project-generations/**,/api/gitlab/**,/api/logs/**,/api/org/**,/api/scheduler/**,/api/search
               metadata:
                 accessMode: PLATFORM
                 audience: kaiwu-system-service

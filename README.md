@@ -33,7 +33,7 @@ cd kaiwu-system-service
 
 ```bash
 export KAIWU_REPOSITORY_BASE_URL='https://github.com/kaiwuzaidao'
-export KAIWU_REPOSITORY_REF='v0.1.0'       # 可选；Release 默认会自动选择同名 tag
+export KAIWU_REPOSITORY_REF='v0.2.0'       # 可选；Release 默认会自动选择同名 tag
 ./scripts/kaiwu.sh repositories            # 先确认将要访问的地址
 ./scripts/kaiwu.sh up
 ```
@@ -57,7 +57,8 @@ kaiwu-system-boot -> kaiwu-system-domain -> kaiwu-system-api
 
 - 用户名密码登录、Access JWT、Refresh Token、登出撤销。
 - Redis 在线会话与 MySQL 会话审计事实。
-- 依赖 `com.kaiwuzaidao:kaiwu-system-starter:0.1.0`。
+- 从 v0.1.0 升级见 [升级说明](docs/UPGRADING.md)。
+- 依赖 `com.kaiwuzaidao:kaiwu-system-starter`，依赖版本见根 pom 的 `kaiwu-system-starter.version`。
 - `/api/platform/probe` 使用 `@RequirePermission("system:platform:read")`。
 - 用户分页、创建、编辑、启停和管理员重置密码；支持 Excel 导入导出、批量启停和多部门归属。
   组织页通过受权限保护的 `GET /api/org/user-departments?userIds=...` 批量读取最多 100 位
@@ -79,8 +80,8 @@ kaiwu-system-boot -> kaiwu-system-domain -> kaiwu-system-api
 - 全局/项目级应用配置，项目值覆盖全局值；敏感配置 AES-GCM 加密，管理端只返回掩码，
   业务有效配置接口永不返回敏感项。
 - 全局/项目级字典类型和字典项，支持项目继承全局并按字典值覆盖，未知值由前端原样显示。
-- 仅接受 `CREATE TABLE` DDL 的确定性 CRUD 生成；产物包含后端、前端、菜单 SQL、
-  增量 SQL、`AGENTS.md`、`CLAUDE.md` 与三行 CI include，可下载 ZIP。
+- 根据项目编码、名称和基础包名等配置，用确定性模板生成前后端基础脚手架；产物包含
+  工程配置、平台清单、`AGENTS.md` 和 `CLAUDE.md`，可下载 ZIP 后在独立业务仓继续开发。
 - 代码生成会把三端同码权限幂等登记到所选项目的菜单树，并只自动授予该项目内置
   `project-admin`；重复生成不会创建重复权限节点。
 - 生成任务按创建人隔离；项目绑定独立 GitLab 仓库后可创建 feature branch 和 MR，
@@ -201,3 +202,34 @@ Compose 的 `db-migrate` 用 Flyway（`flyway/flyway` 镜像）执行 `sql/incre
 ## License
 
 本项目基于 [Apache License 2.0](LICENSE) 开源。
+
+### 内部候选成员查询（C3开发分支）
+
+后台worker可用`member:read`服务凭据显式调用内部`members/by-role`及`members/eligibility`。
+项目归属、有效期、凭据状态和scope由System数据库验证；角色展开最多200人，超限整体422，绝不返回截断候选。
+查询仅用于候选解析及投影，用户办理授权仍使用Gateway Context和资源本地规则。
+新凭据签发开关仍默认关闭，尚未发布或部署。配置、接口和回滚约束见
+[本步骤交接](docs/verification/workflow-platform-step2-c3-20261103/HANDOFF.md)。
+
+### 受管待办协议（C2开发分支）
+
+内部`PUT /api/internal/managed-todos`及`GET /api/internal/managed-todos/receipt`使用C5的`todo:managed`凭据，
+按项目、凭据服务编码、业务键和单个收件人隔离。相同版本同内容返回DUPLICATE，不续期；同版本不同内容冲突，
+旧版本不应用，终态不能重开。工作台现有待办查询合并旧记录和受管投影，JSON字段保持兼容。
+
+`kaiwu.todo.managed-protocol-enabled`默认false，`multi-enabled`仍默认false。
+V121回填共享锁、占用域和配额前，必须停止所有旧/新投递、清理及worker；全部副本升级并对账后才能另行授权开启。
+受管清理仅按`lastSeenAt`，保留版本、摘要、dueAt及墓碑；刷新和清理共用业务键/配额锁。
+深链接只进入当前项目`/workspace/{id}`，子路由由宿主读取本项目`workspace.deep-links`配置再校验。
+本分支没有发布或部署，具体证据和回滚约束见[步骤3交接](docs/verification/workflow-platform-step3-c2-20261103/HANDOFF.md)。
+
+### 多服务登记与显式路由（C1开发分支）
+
+项目后端服务登记在`sys_project_backend_service`；`default`与原`sys_project.service_url`同事务同步。
+`kaiwu.project-backend-services.multi-enabled`默认false：关闭时沿用旧字段导出默认片段，开启后先核对default一致性，
+再允许新增/启停其他服务。管理入口同时要求平台项目权限和目标项目有效管理员身份，登记不会自动发布Gateway路由。
+
+默认服务保留`/{project}-api/**`和`kaiwu-{project}-service`，其他服务使用`/{project}-svc/{service}/**`和
+`kaiwu-{project}.{service}-service`。查看`/api/projects/{id}/gateway-routes`取得分服务片段，仍需审核后发布到受管目录。
+停用只影响后续片段，已发布路由必须另行撤销。C5凭据开关与C2受管待办开关仍独立、默认关闭。
+具体门禁、真实隔离链路及回滚要求见[步骤4交接](docs/verification/workflow-platform-step4-c1-20261103/HANDOFF.md)。

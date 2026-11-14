@@ -15,7 +15,7 @@
   环境默认值。MySQL/Redis 等运行值由该 namespace 的受管 Nacos Data ID 提供。
 - 不引入 Workflow、Integration、AI Harness、发布中心或 SHARED 模式。
 - API 只放稳定 DTO/VO；Domain 放业务实现；Boot 只装配启动。
-- 权限码必须与前端 AuthButton、menu.sql BUTTON 三端同码。
+- 权限码必须与前端 AuthButton、kaiwu/menus.yml BUTTON 三端同码。
 - 数据层只用 MyBatis-Plus（ADR 0017、ADR 0020），`ArchitectureConventionTest` 会拦住 JdbcTemplate
   与第二套 ORM。单表 CRUD 走 `BaseMapper`；多表 JOIN、动态条件、报表等复杂查询优先使用
   Mapper XML。现有授权、状态机守卫、MySQL 专有函数与乐观锁注解 SQL 不做机械迁移。
@@ -29,8 +29,16 @@
   每次演进变成前端破坏性变更，也容易顺手带出不该外发的列。
 - 授权链路、状态机守卫（`WHERE ... AND status = 'RUNNING'`）、MySQL 专有函数与乐观锁
   条件一律保持原样 SQL，不要改写成条件构造器（ADR 0017 第 4 节）。
-- 公共 API、SPI、Port、安全边界和难以从签名理解的行为写 Javadoc；普通 public 方法不以
-  注释数量阻断构建。写“为什么”和边界，不写 `/** 保存配置 */` 这类重复签名的填充物。
+- 所有手写 Java 类型、构造器和方法都写中文 Javadoc，按
+  [JAVA_STYLE.md](docs/JAVA_STYLE.md) 说明职责、授权范围、状态机与副作用；注释必须有业务
+  信息，不能用与签名重复的模板句代替。
+- 涉及 Kaiwu 的项目字典、参数、菜单、角色或其他平台数据时，先核查当前入口和 System 的 CLI 能力、
+  目标环境、用户权限与资源归属，不默认手工操作页面或直写数据库。项目资源优先在业务后端仓的
+  `kaiwu/` 清单中维护，使用 `./kaiwu project sync <业务后端仓>` 查看完整计划；已获授权且计划符合
+  任务范围时加 `--apply` 执行并读回结果，角色授权需明确 `--with-access`。CLI 会话及命令能力以当前
+  实际版本为准；不为验证擅自修改共享环境或暴露凭据。
+- `project sync` 只处理业务项目，不能创建平台全局默认或修改 `system` 项目；平台内置种子走追加式
+  Flyway 迁移和数据库方言校验。确认已有业务项目需配置覆盖时再同步到该项目，不把全局默认误建为项目值。
 - 每次交付记录真实测试证据，不把文档决策描述成已运行能力。
 - Mockito 单元测试证明不了 SQL 与字段映射正确；`MySqlDataLayerContractTest` 会用
   Testcontainers 的一次性 MySQL 执行完整 Flyway 迁移并校验高风险 Mapper。它需要可用 Docker，
@@ -41,7 +49,7 @@
 ```bash
 export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
 export MAVEN_SKIP_RC=1
-# Testcontainers 要能找到 Docker。本机是 Colima，socket 不在默认的 /var/run/docker.sock，
+# Testcontainers 要能找到 Docker。使用 Colima 时 socket 不在默认的 /var/run/docker.sock，
 # 不设这两个变量 MySqlDataLayerContractTest 会直接报「Could not find a valid Docker environment」。
 # Docker Desktop 用户通常无需设置；用 `docker context inspect` 确认自己的 socket 路径。
 export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"
@@ -68,3 +76,10 @@ mvn -s .mvn/settings.xml verify
 | `pnpm check:architecture` | `kaiwu-system-web` | 前端分层反向依赖、跨页 import、绕过 `services/` 直接发请求、硬编码后端地址、页面 index 兼做组件库 |
 | `scripts/check-flyway-compatibility.sh` | **起栈时**（Compose 的 `schema-compat-check`，需数据库连接） | 数据库当前版本高于代码迁移线时拒绝启动；**它不查版本号撞号** |
 | `scripts/verify-*.sh` | 起栈后手工 | 真实链路上的行为回归——单元测试证明不了 SQL 是对的 |
+
+## 后端包结构与契约 v1
+
+遵守 [PACKAGE_STRUCTURE.md](docs/PACKAGE_STRUCTURE.md) 与 [package-layout.json](docs/package-layout.json)。
+分类在前、技术层在后，直接 `identity/controller/UserController`，不再插入功能目录。
+公开 Java 类型按兼容清单保留；迁移不得改变权限、HTTP/Agent 协议和数据库语义。
+布局门禁由 `PackageLayoutContractTest` 随 Maven 测试执行。

@@ -1,6 +1,6 @@
 # 基础镜像提成 ARG，默认值保持公开可复现的 Docker Hub 引用（含 digest 钉死）。
-# 内网 CI 用 --build-arg 覆盖成 Harbor 副本——内网 runner 与 dind 都访问不到
-# registry-1.docker.io，而默认值是仓库对外的契约，不应为内网环境改写。
+# 构建机访问不到 Docker Hub 时，私有 CI 用 --build-arg 覆盖成自建镜像仓库里的副本；
+# 默认值是仓库对外的契约，不应为某个私有环境改写。
 ARG BUILDER_IMAGE=maven:3.9.11-eclipse-temurin-21
 ARG RUNTIME_IMAGE=eclipse-temurin:21-jre
 # 两条 ARG 都必须声明在第一个 FROM 之前：FROM 之后声明的 ARG 属于该 stage 的
@@ -24,6 +24,7 @@ RUN mvn -q ${MAVEN_ARGS_SYSTEM} -Dmaven.resolver.transport=wagon -DskipTests pac
 
 FROM ${RUNTIME_IMAGE}
 WORKDIR /app
+COPY kaiwu-system-service/THIRD-PARTY-NOTICES.md /licenses/THIRD-PARTY-NOTICES.md
 COPY --from=builder /workspace/system/kaiwu-system-boot/target/kaiwu-system-service.jar /app/app.jar
 RUN mkdir -p /var/lib/kaiwu/artifacts \
     && chown -R 10001:10001 /var/lib/kaiwu

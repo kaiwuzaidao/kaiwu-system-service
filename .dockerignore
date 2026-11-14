@@ -1,6 +1,8 @@
 **/target
 **/.git
 .env
+**/.kaiwu
+**/*.env.database
 .idea
 .vscode
 *.log

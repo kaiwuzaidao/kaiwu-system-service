@@ -20,6 +20,16 @@ Kaiwu 采用“薄入口分发、多仓自治、平台控制面、业务项目�
 7. System 签发仅供 Gateway 使用的外部 JWT；Gateway 签发 audience-bound 短期内部 Context；Starter 本地验签并执行最终权限。
 8. 正常业务请求不由 Starter 同步回调 System。完整信任边界见 ADR 0003。
 
+### 1.1 三类项目，一套体系（ADR 0045 Proposed）
+
+| 类别 | 来源/维护者 | 服务对象 | 下线 |
+| --- | --- | --- | --- |
+| 平台本体 | 随平台安装，Kaiwu维护 | 整个平台 | built_in项目不可停用/删除 |
+| 能力应用 | 发行版内置目录，Kaiwu维护版本 | 多个业务项目，默认共用、可选独占 | 应用生命周期停用/卸载，默认保留数据 |
+| 业务项目 | project new生成源码，使用者团队维护 | 自己的业务 | 项目归档，不进入应用目录 |
+
+应用包只适用于能力应用。三类共用登录与网关、成员角色权限、菜单字典配置多语言及sync、待办通知、前端模板外壳、Docker部署约定。能力应用管理权限与目标业务项目授权分离，平台统一提供目标列表/当前用户目标权限查询及前端hook；具体接口与安装/项目启用两级定义见[ADR 0045](adr/0045-app-package-pluggable-installation.md)。本节是已确认分类与拟定交付边界，不宣称接口已实现；多项目Context与共享隔离另等共用T0的0046/D09定稿，普通业务项目仍默认单项目验证。
+
 ## 2. 工作区与仓库布局
 
 目标物理结构：
@@ -85,27 +95,17 @@ kaiwu-system-service/
 │   ├── src/main/java/com/kaiwu/
 │   │   ├── config/                 # Java 配置
 │   │   └── module/
-│   │       ├── auth/
-│   │       ├── user/
-│   │       ├── role/
-│   │       ├── menu/
-│   │       ├── dict/
-│   │       ├── config/
-│   │       ├── audit/
-│   │       ├── org/
-│   │       ├── project/
-│   │       ├── projectmember/
-│   │       ├── projectrole/
-│   │       ├── projectmenu/
-│   │       ├── codegen/
-│   │       ├── ai/                      # 受管 Provider 与字段元数据增强
-│   │       ├── gitlab/
-│   │       ├── projectgeneration/       # AI 蓝图、双仓脚手架与一次性交付
-│   │       └── task/
+│   │       ├── identity/               # auth/user/org，分类内再分 controller/service/impl 等
+│   │       ├── project/                # 项目/权限/成员/菜单/凭据/健康
+│   │       ├── configuration/          # 参数/字典/国际化
+│   │       ├── operation/              # 审计/通知/调度/搜索/探针
+│   │       ├── factory/                # 蓝图/生成/脚手架/模板
+│   │       ├── connector/              # AI/GitLab 对接
+│   │       └── agent/                  # 规划/审批/确认/执行/会话
 │   └── src/main/resources/
 │       └── templates/              # 后端/前端/CI/AGENTS 模板
 ├── kaiwu-system-boot/
-│   ├── src/main/java/com/kaiwu/KaiwuApplication.java
+│   ├── src/main/java/com/kaiwu/KaiwuSystemApplication.java
 │   └── src/main/resources/application.yml
 ├── sql/
 │   ├── schema.sql
@@ -117,6 +117,9 @@ kaiwu-system-service/
 │   └── adr/
 └── docker-compose.yml
 ```
+
+包组织以 [PACKAGE_STRUCTURE.md](PACKAGE_STRUCTURE.md)、[ADR 0032](adr/0032-business-packages-and-explicit-contracts.md)
+及 `docs/package-layout.json` 为准。已发布 API/SDK 类型按 FQCN 兼容清单保留。
 
 分层规则：
 
@@ -252,8 +255,11 @@ kaiwu-{code}-service/
 │       ├── java/                       # 启动类、运行配置
 │       └── resources/db/migration/
 ├── sql/
-│   ├── schema.sql
-│   └── menu.sql
+│   └── schema.sql
+├── kaiwu/                           # 平台资源清单（ADR 0036）
+│   ├── menus.yml
+│   ├── dicts.yml
+│   └── configs.yml
 ├── Dockerfile
 ├── compose.local.yml
 ├── scripts/dev-check.sh
@@ -274,7 +280,7 @@ com.kaiwu.app.{normalizedProjectCode}
 
 生成后端与 System 使用相同的 `boot -> domain -> api` 三模块依赖方向，由 Boot 产出单一
 可部署制品，并只通过制品仓库依赖 `kaiwu-system-starter`。
-`sql/menu.sql` 是提交给平台审阅的项目菜单种子，不允许作为业务数据库 migration 执行。
+`kaiwu/` 下的清单是提交给平台的菜单、字典与配置声明，用 `./kaiwu project sync` 同步，不允许作为业务数据库 migration 执行。
 
 ### 6.2 前端仓库
 
@@ -466,6 +472,9 @@ System 的 `PermissionResolver` 读取本地 system 项目权限事实。`@Requi
 第一阶段 PROJECT Context 不携带通用 DataScope。System 的组织范围由 System 本地处理；业务项目出现
 真实数据范围需求后必须新增 ADR，不能临时增加普通可信 Header。
 
+> 修订（2026-11-03）：项目内按角色的行级数据范围见 [ADR 0044](adr/0044-project-data-scope.md)（Proposed），
+> 契约见 [DATA_SCOPE.md](DATA_SCOPE.md)。范围放进已签名的 Context 声明，不新增 Header。
+
 ### 8.5 会话与令牌寿命
 
 - Access JWT：15 分钟，只在前端内存保存。
@@ -503,7 +512,7 @@ frontend repository
 template version
 ```
 
-Java、TypeScript 和 menu.sql 都从同一份 `permissions` 派生，避免三处漂移。
+Java、TypeScript 和 `kaiwu/menus.yml` 都从同一份 `permissions` 派生，避免三处漂移。
 生成成功时，同一份权限定义还会幂等写入目标项目的 `sys_project_menu`，并只授予该项目
 内置 `project-admin`。system 平台权限和业务项目权限都使用相同的 `sys_project_*` 模型，
 但严格按 `project_id` 隔离；legacy `sys_role/sys_menu` 只保留兼容，不参与登录鉴权。
@@ -622,7 +631,9 @@ Canonical `docker-compose.yml` 放在 `kaiwu-system-service` 仓库，通过 sib
 
 本地 Compose 使用显式静态 System route，避免为了 Hello 链路强制启动 Nacos；Java 代码和部署配置从第一天保留 Nacos 接入。部署环境启用 Nacos 后仍使用同一显式 route 契约，禁止自动暴露服务。
 
-`docker compose up` 运行 MySQL、Redis、System、Gateway、Web。Starter 不作为容器，也不从
+首次部署通过统一入口选择 MySQL 或达梦 DM8；连接配置保存后复用。MySQL 可由 Compose 管理，达梦使用外部实例与独立迁移工具模块，详见 [数据库选择](DATABASES.md) 和 [ADR 0048](adr/0048-platform-mysql-and-dameng.md)。
+
+`docker compose up` 默认运行 MySQL、Redis、System、Gateway、Web。Starter 不作为容器，也不从
 sibling 源码安装；消费者只能依赖已发布到公司 Nexus 的版本化制品。
 
 ## 13. Secret 与配置

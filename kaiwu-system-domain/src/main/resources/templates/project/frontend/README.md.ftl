@@ -39,6 +39,12 @@ dev server 已把 `/${projectCode}-api/**` 代理到本机 Gateway `8088`，因�
 
 生产构建：`pnpm build`；类型检查：`pnpm typecheck`。
 
+### 主题维护
+
+默认采用与 Kaiwu System 一致的冷蓝主题：`src/theme/tokens.ts` 管理颜色，
+`src/theme/antd.ts` 配置 Ant Design 组件，`src/global.less` 管理布局和响应式样式。
+这些文件随代码包一起生成，后续由本仓库维护，不依赖平台源码或私有前端主题包。
+
 ### 3. 打开页面
 
 有三种方式：已经配好同源边缘路由时用**方式 A**；直接运行本地 dev server 时用**方式 B**。

@@ -1,0 +1,82 @@
+{
+  "formatVersion": 1,
+  "code": "sample-app",
+  "name": {
+    "zh-CN": "示例应用",
+    "en-US": "Sample app"
+  },
+  "version": "1.0.0",
+  "platform": ">=1.0.0 <2.0.0",
+  "requires": [
+    "todo"
+  ],
+  "components": [
+    {
+      "kind": "service",
+      "image": "docker.io/example/sample-service@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "port": 8080,
+      "memory": "1536Mi",
+      "health": "/actuator/health",
+      "database": {
+        "schema": "kaiwu_sample_app",
+        "migrations": true
+      },
+      "route": "/sample-app-api/**",
+      "scope": "platform"
+    },
+    {
+      "kind": "web",
+      "image": "docker.io/example/sample-web@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "memory": "128Mi",
+      "entry": "/apps/sample-app/",
+      "scope": "platform"
+    }
+  ],
+  "deployment": {
+    "docker": {
+      "serviceCompose": "deploy/server/compose.yml",
+      "webCompose": "web/deploy/server/compose.yml",
+      "gatewayRoute": "deploy/server/gateway-route.yml"
+    }
+  },
+  "manifests": {
+    "menus": "kaiwu/menus.yml",
+    "dicts": "kaiwu/dicts.yml",
+    "roles": "kaiwu/roles.yml",
+    "configs": "kaiwu/configs.yml"
+  },
+  "integration": {
+    "docs": "docs/integration.md"
+  },
+  "uninstall": {
+    "blockers": {
+      "component": "service",
+      "path": "/internal/apps/uninstall-blockers"
+    }
+  },
+  "tenancy": {
+    "default": "shared",
+    "supported": [
+      "shared",
+      "dedicated"
+    ]
+  },
+  "dedicatedTemplate": {
+    "kind": "service",
+    "image": "docker.io/example/sample-service@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "port": 8080,
+    "memory": "1536Mi",
+    "health": "/actuator/health",
+    "database": {
+      "schema": "kaiwu_sample_app",
+      "migrations": true
+    },
+    "route": "/sample-app-api/**",
+    "scope": "dedicated-template"
+  },
+  "quotas": {
+    "startsPerMinute": 30,
+    "inFlightInstances": 100,
+    "documentConcurrency": 2
+  }
+}

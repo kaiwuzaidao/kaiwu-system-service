@@ -42,3 +42,7 @@
 
 Flyway 历史迁移在公开 squash 基线中统一为 Kaiwu 命名。已有开发数据库若记录过修改前
 的迁移校验和，应在切换该基线时重建；不得直接把公开基线用于覆盖生产数据库。
+
+## 第三方二进制
+
+System 和达梦迁移器镜像都随附达梦 JDBC 驱动声明。迁移器还使用 Flyway 达梦插件及本仓的 Schema 覆盖类。坐标、驱动摘要、许可原文和补丁范围见[第三方声明](../THIRD-PARTY-NOTICES.md)，镜像内路径为 `/licenses/THIRD-PARTY-NOTICES.md`。

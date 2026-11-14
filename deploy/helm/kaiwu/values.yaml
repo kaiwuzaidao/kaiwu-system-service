@@ -4,6 +4,11 @@ fullnameOverride: ""
 imagePullSecrets: []
 
 images:
+  dmMigrator:
+    repository: ghcr.io/kaiwuzaidao/kaiwu-dm-migrator
+    tag: latest
+    digest: ""
+    pullPolicy: IfNotPresent
   system:
     repository: ghcr.io/kaiwuzaidao/kaiwu-system-service
     tag: latest
@@ -68,6 +73,7 @@ serviceAddressing:
   extraEnv: []
 
 database:
+  type: mysql # mysql / dm；达梦必须使用外部实例，端口通常为 5236。
   # true 仅用于演示或单节点开发集群；生产环境必须使用受管 MySQL。
   embedded: true
   host: ""
@@ -84,6 +90,14 @@ redis:
   port: 6379
   storageClass: ""
   storageSize: 2Gi
+
+storage:
+  # 对象存储（ADR 0039）允许访问的 STS 与存储主机，逗号分隔，精确匹配。
+  # 留空则 StorageNetworkPolicy 拒绝一切连接（fail-closed）。
+  # 例：sts.cn-hangzhou.aliyuncs.com,oss-cn-hangzhou.aliyuncs.com
+  allowedHosts: ""
+  # 可选的 HTTP 出站代理，形如 http://host:port；内网 MinIO 可留空直连。
+  egressProxyUri: ""
 
 aiProvider:
   # 允许访问的模型服务主机，逗号分隔，精确匹配不支持通配符。
@@ -118,6 +132,10 @@ aiProvider:
 migration:
   enabled: true
   connectRetries: 60
+
+# 平台运行时区，同时作用于 system 容器（TZ）和数据库连接会话（JDBC connectionTimeZone）。
+# 库里的 DATETIME 不带时区，已有数据写入后不要再改这个值，否则新旧数据会相差整数小时。
+timeZone: Asia/Shanghai
 
 system:
   replicaCount: 1
@@ -224,3 +242,9 @@ ingress:
 nodeSelector: {}
 tolerations: []
 affinity: {}
+
+# 子项目聊天查询需配套升级 Gateway/Starter，并审核 manifest 后才能执行。
+agent:
+  remoteReadEnabled: false
+  # 独立的写能力总开关。仅当只读总开关也开启、业务写入口已验证时才可打开。
+  remoteWriteEnabled: false

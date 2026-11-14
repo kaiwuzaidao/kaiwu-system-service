@@ -30,6 +30,9 @@ class ManagedThreadConventionTest {
             Path.of("../kaiwu-${projectCode}-api/src/main/java"),
             Path.of("../kaiwu-${projectCode}-boot/src/main/java"));
 
+    /**
+     * 验证生产代码只使用受生命周期管理的线程池，不直接创建线程或默认执行器。
+     */
     @Test
     void productionCodeUsesExplicitLifecycleManagedExecutors() {
         List<String> violations = new ArrayList<>();
@@ -50,6 +53,12 @@ class ManagedThreadConventionTest {
                 .isEmpty();
     }
 
+    /**
+     * 列出目录下的全部 Java 源码文件。
+     *
+     * @param root 待扫描的源码目录
+     * @return 源码文件路径
+     */
     private static List<Path> javaSources(Path root) {
         try (Stream<Path> files = Files.walk(root)) {
             return files.filter(path -> path.toString().endsWith(".java")).toList();
@@ -58,6 +67,12 @@ class ManagedThreadConventionTest {
         }
     }
 
+    /**
+     * 读取源码文件全文。
+     *
+     * @param path 源码文件
+     * @return 文件内容
+     */
     private static String read(Path path) {
         try {
             return Files.readString(path);

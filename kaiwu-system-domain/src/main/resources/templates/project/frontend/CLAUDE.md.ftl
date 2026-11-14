@@ -14,7 +14,7 @@ API 前缀：`/${projectCode}-api`
 `docs/kaiwu-project-blueprint.json` 是本仓库与后端仓库共享的模块、权限与启用语言契约，
 `check:perm` 依赖它；新增模块时往 `modules` 追加一条。后端仓库按
 `../kaiwu-${projectCode}-service` 平级放置（或设 `KAIWU_SERVICE_DIR`）时，
-`check:perm` 会自动升级为与后端注解、`menu.sql` 逐码比对。
+`check:perm` 会自动升级为与后端注解、`kaiwu/menus.yml` 逐码比对。
 
 目录约定：页面放在 `src/pages`，接口放在 `src/services`，公共能力分别放在
 `src/components`、`src/hooks`、`src/providers` 和 `src/utils`。

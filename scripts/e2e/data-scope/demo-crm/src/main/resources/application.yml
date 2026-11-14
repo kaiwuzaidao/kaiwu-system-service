@@ -1,0 +1,43 @@
+server:
+  port: ${SERVER_PORT:8316}
+
+spring:
+  application:
+    name: kaiwu-demo-crm-service
+  datasource:
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DEMO_DB_NAME:kaiwu_democrm}?useUnicode=true&characterEncoding=utf8&connectionTimeZone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+kaiwu:
+  starter:
+    enabled: true
+    context-public-key: ${KAIWU_CONTEXT_PUBLIC_KEY}
+    audience: kaiwu-demo-crm-service
+    project-code: demo-crm
+    # 联调要点：Agent 调用入口 /api/internal/** 不带普通 Context，必须排除，否则开启 Agent 后会被挡成 401。
+    exclude-paths:
+      - /api/internal/**
+      - /actuator/health
+      - /actuator/health/**
+      - /demo/**
+    agent:
+      execution:
+        enabled: true
+        project-id: ${KAIWU_PROJECT_ID}
+  data-scope:
+    members:
+      system-address: ${KAIWU_SYSTEM_SERVICE_URI:http://127.0.0.1:8080}
+      credential: ${DEMO_MEMBER_CREDENTIAL}

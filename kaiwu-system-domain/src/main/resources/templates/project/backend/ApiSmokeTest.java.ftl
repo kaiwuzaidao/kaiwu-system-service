@@ -7,6 +7,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.utility.DockerImageName;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -34,8 +35,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ApiSmokeTest {
 
-    private static final MySQLContainer<?> MYSQL =
-            new MySQLContainer<>("mysql:8.4").withDatabaseName("kaiwu_${normalizedProjectCode}");
+    /**
+     * 镜像可由 {@code KAIWU_TEST_MYSQL_IMAGE} 指定（CI 与内网环境用它改走私有镜像仓库或镜像源），未设置时用官方 {@code mysql:8.4}。
+     * 写死官方镜像会让无法访问 Docker Hub 的环境在拉取上白等数分钟后超时。
+     */
+    private static final MySQLContainer<?> MYSQL = new MySQLContainer<>(DockerImageName.parse(
+                            System.getenv().getOrDefault("KAIWU_TEST_MYSQL_IMAGE", "mysql:8.4"))
+                    .asCompatibleSubstituteFor("mysql"))
+            .withDatabaseName("kaiwu_${normalizedProjectCode}");
 
     static {
         MYSQL.start();

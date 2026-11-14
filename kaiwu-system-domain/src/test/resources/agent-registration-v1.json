@@ -1,0 +1,29 @@
+{
+  "projectCode": "crm",
+  "code": "crm.record.list",
+  "version": "1",
+  "description": "查询记录",
+  "permission": "record:record:list",
+  "dataScope": "SELF",
+  "params": {
+    "pageSize": {
+      "type": "INT",
+      "required": false,
+      "min": 1,
+      "max": 100,
+      "maxLength": null,
+      "values": null,
+      "enumFrom": null,
+      "defaultValue": 20
+    }
+  },
+  "outboundFields": [
+    "id",
+    "title"
+  ],
+  "redact": {},
+  "readOnly": true,
+  "idempotent": true,
+  "confirmation": "NONE",
+  "timeoutMs": 5000
+}

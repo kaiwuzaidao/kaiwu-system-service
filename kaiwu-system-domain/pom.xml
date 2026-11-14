@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.kaiwuzaidao</groupId>
         <artifactId>kaiwu-system</artifactId>
-        <version>0.1.0</version>
+        <version>0.2.0</version>
     </parent>
 
     <artifactId>kaiwu-system-domain</artifactId>
@@ -63,6 +63,12 @@
         <dependency>
             <groupId>org.freemarker</groupId>
             <artifactId>freemarker</artifactId>
+            <version>${freemarker.version}</version>
+        </dependency>
+        <!-- 业务项目平台资源清单（ADR 0036）只用 SafeConstructor 解析为基础类型，版本由 Spring Boot 管理。 -->
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
         </dependency>
         <dependency>
             <groupId>org.apache.poi</groupId>
@@ -132,6 +138,13 @@
         <dependency>
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- ADR 0039：只在测试里用 AWS 官方签名器交叉验证手写的 SigV4，生产代码不依赖 AWS SDK。 -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>http-auth-aws</artifactId>
+            <version>${awssdk.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

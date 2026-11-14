@@ -13,6 +13,8 @@ spec:
       app.kubernetes.io/component: web
   template:
     metadata:
+      annotations:
+        checksum/web-nginx-template: {{ .Values.web.nginxTemplate | sha256sum | quote }}
       labels:
         {{- include "kaiwu.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: web

@@ -17,6 +17,15 @@ permissions:
 jobs:
   image:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: kaiwu-system-service
+            context: .
+            dockerfile: kaiwu-system-service/Dockerfile
+          - name: kaiwu-dm-migrator
+            context: kaiwu-system-service
+            dockerfile: kaiwu-system-service/docker/dm-migrate/Dockerfile
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,6 +35,9 @@ jobs:
           repository: kaiwuzaidao/kaiwu-system-starter
           path: kaiwu-system-starter
 
+      # arm64 供 Apple 芯片的 Mac 原生运行，由 QEMU 模拟构建（只在发版时跑，慢一些可以接受）。
+      # 不在 Dockerfile 里用 --platform=$BUILDPLATFORM：没有 BuildKit 的本机 docker build 会直接报错。
+      - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -35,7 +47,7 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/kaiwu-system-service
+          images: ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -43,8 +55,8 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           # 上下文是两个仓的父目录，Dockerfile 在其中一个仓里。
-          context: .
-          file: kaiwu-system-service/Dockerfile
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           push: true
           # 境外 runner 直连 Maven Central，不走仓库内的阿里云镜像配置。
           build-args: |
@@ -52,6 +64,6 @@ jobs:
             MAVEN_ARGS_SYSTEM=
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max

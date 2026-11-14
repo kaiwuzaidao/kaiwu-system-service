@@ -3,10 +3,10 @@ server:
 
 spring:
   datasource:
-    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:kaiwu_platform}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    url: ${DB_JDBC_URL:jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:kaiwu_platform}?useUnicode=true&characterEncoding=utf8&connectionTimeZone=${KAIWU_TIME_ZONE:Asia/Shanghai}&forceConnectionTimeZoneToSession=true}
     username: ${DB_USER:kaiwu}
     password: ${DB_PASSWORD}
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    driver-class-name: ${DB_DRIVER:com.mysql.cj.jdbc.Driver}
   data:
     redis:
       host: ${REDIS_HOST:127.0.0.1}
@@ -28,11 +28,13 @@ kaiwu:
     allowed-hosts: ${KAIWU_AI_PROVIDER_ALLOWED_HOSTS:}
     # 受控 HTTP 出站代理；本地为 compose 的 ai-egress-proxy 服务。
     egress-proxy-uri: ${KAIWU_AI_PROVIDER_EGRESS_PROXY_URI:}
+  storage:
+    # 对象存储出站（ADR 0039）：逗号分隔的 STS 与存储主机名白名单，为空时拒绝全部连接。
+    allowed-hosts: ${KAIWU_STORAGE_ALLOWED_HOSTS:}
+    # 可选的 HTTP 出站代理；内网存储（如 MinIO）可以不配。
+    egress-proxy-uri: ${KAIWU_STORAGE_EGRESS_PROXY_URI:}
   codegen:
     artifact-root: ${KAIWU_ARTIFACT_ROOT:/var/lib/kaiwu/artifacts}
-    gitlab:
-      base-url: ${KAIWU_GITLAB_URL:}
-      token: ${KAIWU_GITLAB_TOKEN:}
   auth:
     access-private-key: ${KAIWU_ACCESS_PRIVATE_KEY}
     bootstrap-admin-password: ${KAIWU_BOOTSTRAP_ADMIN_PASSWORD}
@@ -53,6 +55,8 @@ kaiwu:
       - /api/hello
       - /api/auth/login
       - /api/auth/refresh
+      - /api/auth/device/start
+      - /api/auth/device/token
       - /api/public/i18n/catalog
       # 站内信投递是服务端到服务端的单向调用，不携带 Gateway Context；
       # Gateway 的 InternalEndpointBlockFilter 已阻断外部访问 /internal，

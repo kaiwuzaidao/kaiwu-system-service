@@ -26,6 +26,12 @@ public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    /**
+     * 将业务异常映射为保留国际化信息的 HTTP 响应。
+     *
+     * @param exception 已验证且可安全对外的业务异常
+     * @return 对应状态和统一响应外壳
+     */
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<Result<Void>> handleApi(ApiException exception) {
         return ResponseEntity.status(exception.getStatus()).body(Result.error(
@@ -33,6 +39,12 @@ public class GlobalExceptionHandler {
                 exception.getMessageKey(), exception.getMessageArgs()));
     }
 
+    /**
+     * 汇总 Bean Validation 的字段错误并以通用国际化标识返回。
+     *
+     * @param exception 请求参数校验异常
+     * @return HTTP 400 统一响应
+     */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Result<Void>> handleValidation(
             MethodArgumentNotValidException exception
@@ -47,6 +59,12 @@ public class GlobalExceptionHandler {
                 HttpStatus.BAD_REQUEST.value(), detail, "error.validation.failed", args));
     }
 
+    /**
+     * 记录未预期异常的完整堆栈，并向客户端隐藏实现细节。
+     *
+     * @param exception 未分类异常
+     * @return 使用通用错误标识的 HTTP 500 响应
+     */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Result<Void>> handleUnexpected(Exception exception) {
         log.error("未预期异常", exception);

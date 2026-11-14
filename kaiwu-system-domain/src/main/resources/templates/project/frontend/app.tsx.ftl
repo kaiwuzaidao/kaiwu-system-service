@@ -1,63 +1,104 @@
-<#noparse>import type { RunTimeLayoutConfig } from '@umijs/max';
+<#noparse>import type { MenuDataItem } from '@ant-design/pro-components';
+import { Link, type RunTimeLayoutConfig } from '@umijs/max';
 import type { ReactNode } from 'react';
-import RightContent from '@/components/RightContent';
-import ProjectAccessProvider from '@/providers/ProjectAccessProvider';
+import LineIcon, { type LineIconName } from '@/components/LineIcon';
+import RightContent, { PageBreadcrumb } from '@/components/RightContent';
+import ProjectAccessProvider, { useProjectAccess } from '@/providers/ProjectAccessProvider';
+import { projectMenu } from '@/utils/projectMenu';
+import useProjectConfig from '@/hooks/useProjectConfig';
+import { proLayoutTokens } from '@/theme/layout';
+import { readProjectId } from '@/hooks/useProjectId';
 
 export function rootContainer(container: ReactNode) {
   return <ProjectAccessProvider>{container}</ProjectAccessProvider>;
 }
 
 /**
- * 布局与平台端（Kaiwu System）保持同一套观感：同样的品牌方块、同样的纵向间距、
- * 同样的侧栏底部区域。多个业务后台并存时，用户在它们之间切换不应该有"换了个
- * 系统"的感觉。
+ * 菜单图标按路由取 线性图标。Umi 只认 Ant Design 图标名，设计稿的细线图标在这里统一替换；
+ * 新增页面时按路由在表里登记一个图标，不登记则使用通用图标，保证每个菜单项都有图标、文字对齐。
  */
-export const layout: RunTimeLayoutConfig = () => {
+const MENU_GLYPHS: Record<string, LineIconName> = {
+  '/': 'layout',
+  '/project-members': 'user',
+  '/project-roles': 'shield',
+</#noparse><#if fileRegistry><#noparse>
+  '/project-files': 'grid',
+</#noparse></#if><#noparse>};
+
+/** 有子菜单的目录在 group 菜单里显示为分组标题，标题不带图标（与平台侧栏一致）。 */
+function withLineIcons(items: MenuDataItem[]): MenuDataItem[] {
+  return items.map((item) =>
+    item.children?.length
+      ? { ...item, icon: undefined, children: withLineIcons(item.children) }
+      : { ...item, icon: <LineIcon name={MENU_GLYPHS[item.path ?? ''] ?? 'grid'} /> },
+  );
+}
+
+/**
+ * 布局与平台端（Kaiwu System）保持同一套 Ant Design Pro 规格：同样的品牌方块、分组侧栏、顶部操作栏与页面留白。
+ * 多个业务后台并存时，用户在它们之间切换不应该有「换了个系统」的感觉。
+ */
+/** 项目配置可以覆盖默认的管理端名称和品牌。 */
+function SidebarBrand({ title }: { title: ReactNode }) {
+  const label = useProjectConfig('app.admin.label');
+  const brand = useProjectConfig('app.admin.brand');
+  return (
+    <div className="kaiwu-sidebar-brand">
+      <span className="kaiwu-sidebar-brand-mark" aria-hidden="true">
+        <span></#noparse>${projectName?has_content?then(projectName?substring(0, 1), "K")}<#noparse></span>
+      </span>
+      <span className="kaiwu-sidebar-brand-name">{label || brand || title}</span>
+    </div>
+  );
+}
+
+export const layout: RunTimeLayoutConfig = function useProjectLayout() {
+  const access = useProjectAccess();
   return {
-    // 关闭默认 logo，改用与平台一致的渐变方块，保证多个后台视觉同源。
     logo: false,
-    menuHeaderRender: (_, title) => (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 4px' }}>
-        <div
-          style={{
-            width: 30,
-            height: 30,
-            borderRadius: 8,
-            background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            fontWeight: 700,
-            fontSize: 15,
-            letterSpacing: 0.4,
-            boxShadow: '0 4px 12px rgba(79,70,229,0.28)',
-          }}
-        >
-          </#noparse>${projectName?has_content?then(projectName?substring(0, 1), "K")}<#noparse>
-        </div>
-        {title}
-      </div>
-    ),
-    /**
-     * 与平台端保持同一套纵向间距：PageContainer 的间距均由
-     * paddingBlockPageContainerContent 派生，默认 40 会让标题上方叠出 44px。
-     * 收到 24 后为 28px，标题到内容 20px。只调纵向，左右保持对齐。
-     */
-    token: {
-      pageContainer: {
-        paddingBlockPageContainerContent: 24,
-      },
+    className: 'kaiwu-subapp-layout',
+    navTheme: 'light',
+    layout: 'mix',
+    splitMenus: false,
+    fixedHeader: true,
+    fixSiderbar: true,
+    contentWidth: 'Fluid',
+    headerHeight: 56,
+    siderWidth: 256,
+    menu: { type: 'group', locale: true },
+    menuDataRender: () =>
+      withLineIcons(
+        access.loading || access.error || !access.projectId
+          ? []
+          : projectMenu(access.menus, access.permissions),
+      ),
+    menuItemRender: (item, defaultDom, menuProps) => {
+      if (item.isUrl || item.children || !item.path || item.path === menuProps.location?.pathname) {
+        return defaultDom;
+      }
+      // 菜单切页只继承平台项目，订单等页面参数留在原页。
+      const projectId = readProjectId();
+      const search = projectId ? new URLSearchParams({ projectId }).toString() : '';
+      return (
+        <Link to={{ pathname: item.path.replace('/*', ''), search }} target={item.target}>
+          {defaultDom}
+        </Link>
+      );
     },
-    contentStyle: {
-      // 顶部收紧，左右与底部保持规范的 24 页边距。
-      padding: '16px 24px 24px',
-      background: '#f5f6fa',
-    },
-    // 不渲染面包屑：与页头标题信息重复，平台端也只保留标题。
-    breadcrumbRender: false,
-    // side 布局下渲染在侧栏底部：全局搜索、切换项目、当前用户与站内信。
+    headerTitleRender: (_, title) => <SidebarBrand title={title} />,
+    menuFooterRender: false,
+    // 桌面与窄屏共用原生 ProLayout 顶栏。
     rightContentRender: () => <RightContent />,
+    childrenRender: (children) => (
+      <>
+        <div className="kaiwu-content-frame">
+          <PageBreadcrumb />
+          {children}
+        </div>
+      </>
+    ),
+    token: proLayoutTokens,
+    contentStyle: { padding: 0 },
   };
 };
 </#noparse>

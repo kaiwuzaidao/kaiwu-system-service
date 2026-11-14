@@ -81,6 +81,10 @@ spec:
             - name: KAIWU_GATEWAY_MANAGED_ROUTES_DIR
               value: /etc/kaiwu/gateway-routes
             {{- end }}
+            - name: KAIWU_GATEWAY_AGENT_ENABLED
+              value: {{ .Values.agent.remoteReadEnabled | quote }}
+            - name: KAIWU_GATEWAY_AGENT_WRITE_ENABLED
+              value: {{ .Values.agent.remoteWriteEnabled | quote }}
             {{- with .Values.serviceAddressing.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}

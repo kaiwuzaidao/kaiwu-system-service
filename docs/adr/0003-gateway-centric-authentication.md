@@ -132,6 +132,9 @@ Gateway 的项目成员校验只决定“能否进入项目服务”。以下最
 System 内部的组织范围由 System 从本地事实源处理。第一阶段 PROJECT Context 不携带通用 DataScope；
 出现真实的跨项目数据范围需求时再单独提交 ADR，不能用普通 Header 临时扩展。
 
+> 修订（2026-11-03）：项目内按角色的行级数据范围已由 [ADR 0044](0044-project-data-scope.md) 提出，
+> 范围进入已签名的 Context 声明 `ds`，仍不使用普通 Header。上一句对「跨项目数据范围」的限制不变。
+
 前端 `<PermissionButton permission>` 只用于交互可见性，不能作为安全证据。
 
 ### 6. 网络边界
@@ -284,3 +287,55 @@ Business Service -> 数据归属/状态授权
 - **Gateway 注入普通用户/权限 Header**：内部直连和伪造风险高，无法校验 issuer、audience 与过期时间。
 - **所有服务共同验证并签发同一个 HMAC JWT**：任一业务服务泄漏 Secret 后可伪造任意用户。
 - **把完整权限写入长效外部 JWT**：权限变更无法及时生效，Token 体积会随项目增长。
+
+
+## ADR 0030 的只读 Agent 委托补充（2026-09-23）
+
+新增独立用途服务断言与 Action Context，不改变普通 PUBLIC/PLATFORM/PROJECT 验证规则。
+服务断言复用 System RSA 密钥但必须校验独立 typ、固定服务 sub、唯一 Agent audience、最多 30 秒、请求摘要与 Redis 单次 jti；普通用户 JWT 不能调用委托入口。
+Action Context 仅由 Gateway 签发、仅供 Starter 固定只读 Handler 接收，绑定能力版本、manifest 摘要、参数摘要和来源项目；普通业务 API 拒绝此类型。Gateway 逐次重读有效会话与 System 项目授权，Starter 逐次校验本地固定能力、权限与共享重放存储，领域数据授权仍由业务 Handler 执行。
+详细协议和默认关闭配置见 [远程执行说明](../AGENT_REMOTE_EXECUTION.md)。远程写操作不在此补充开放范围。
+
+## 2026-11-03：C5项目服务凭据隔离补充
+
+服务凭据继续沿用历史zsch前缀与单向BCrypt存储；旧default仅能使用既有调度、配置和存储入口。
+显式服务凭据绑定项目、服务编码、签发时固定scope及绝对UTC期限，不能继承default权限，也不能当作用户Context。
+新内部能力端点须用服务端固定scope与权威项目ID调用authenticateScopedBearer，不能信任正文或scope头声明。
+多凭据签发multi-enabled默认false；所有副本兼容前不允许打开。关闭开关仍允许查询、撤销以完成安全回退。
+新签发/撤销与审计同事务，项目锁串行化并存数量；旧default轮换只更新default，保持旧调用方行为。
+期限按UTC秒向下取整，比较使用UTC参数，不依赖数据库会话时区。元数据列表沿用平台PageBounds有界分页，所有管理入口复核权限及项目成员。
+回退旧二进制前必须停相关worker、关闭签发并撤销仍ACTIVE的非default凭据（仅过期不够，旧代码不识别expires_at）；保留列、scope行和撤销墓碑。
+
+### 2026-11-03：C3候选成员内部查询
+
+候选解析worker可显式使用非default且具有`member:read`的服务凭据，访问
+`/api/internal/projects/{projectCode}/members/by-role`及`/eligibility`。System按持久化凭据的项目、
+scope、状态和UTC期限认证，再比较路径项目编码。浏览器身份头、普通用户JWT和旧投递token均不授予此能力；
+内部路径继续由Gateway现有规则阻断，不增加公开路由。
+
+角色展开在一次只读事务中返回完整结果，默认及硬上限均为200，配置只能调低；多读一条检测超限并整体422，
+不返回分页或部分候选。资格查询仅返回请求ID的有效成员事实。用户、成员和角色状态取System本地事实，
+不返回个人资料，不替代用户办理时的Context及资源授权，不在正常用户请求中同步回调System鉴权。
+Starter客户端显式装配，依赖故障必须抛出无敏感正文的MemberQueryException，由worker维持等待并稍后重新解析；
+不能当零成员成功。C4用户委托、nonce及办理授权协议不在本步骤实施。
+
+### 2026-11-03：C2受管待办的机器身份与深链接
+
+新受管投递只接受C5非default的`todo:managed`事实。项目和生产者由持久凭据决定，不能由正文或用户身份头指定；
+PUT与回执读取仍为Gateway阻断的内部路径，不扩展浏览器PUBLIC列表。旧TodoClient/NotificationClient继续原投递契约。
+新协议默认关闭；启用前暂停全部旧/新写入与清理，完成共享锁/占用域/额度回填并确认全部副本遵守相同锁顺序。
+
+现有用户待办查询继续从验签StarterContext取得收件人，只合并其自己的旧/受管投影，不返回版本摘要等内部协议字段。
+受管清理按UTC lastSeenAt并在共享锁内重新校验，只临时关闭失活投影，不删除墓碑或改写序号、摘要和dueAt。
+用户点击链接先到本项目同源宿主，再按本项目来源的workspace.deep-links配置校验路径段和查询参数；
+配置读取失败、继承全局配置、未知路由或危险参数均退回项目首页。宿主只负责安全导航，实际taskId资源归属和办理权限
+仍由目标业务服务校验，不能从前端路由白名单推断资源授权。
+
+### 2026-11-03：C1同项目多服务的受众隔离
+
+System只登记项目内后端服务及导出片段，不自动写Nacos或Gateway配置。管理请求在平台权限之外验证目标项目有效管理员。
+default同步旧service_url，关闭多服务时旧字段仍为权威来源；开启时不一致必须503，不能从旧快照推测默认服务。
+非default拥有独立Path、route ID和audience，仍走现有PROJECT会话/项目快照和Starter本地验签，不能跨服务复用Context。
+显式文件未发布的路径不路由；配置managed-routes-dir时跨来源ID/audience/路径冲突整体拒绝，保留旧default规则。
+Agent只读与写委托只选择default，旧片段缺serviceCode时按default兼容；多个default候选仍失败关闭。
+服务停用不会自动撤销已发布片段、已有Context或C5凭据，需按各自的发布/撤销流程处理。

@@ -140,7 +140,7 @@ kaiwu-{projectCode}-web
 ```text
 后端：@RequirePermission("module:resource:action")
 前端：<PermissionButton permission="module:resource:action">
-SQL： menu.sql 中 BUTTON 节点的 permission_code
+清单： kaiwu/menus.yml 中 BUTTON 节点的 permission
 ```
 
 验收时必须覆盖：
@@ -165,7 +165,7 @@ SQL： menu.sql 中 BUTTON 节点的 permission_code
 | GEN-003 | 生成后端服务 | 与 System 一致的 `api/domain/boot` 三模块、单一 Boot 可部署制品，`mvn verify` 通过 |
 | GEN-004 | 生成独立管理前端 | Umi Max + AntD 5 + ProComponents，typecheck/build 通过 |
 | GEN-005 | 生成 CRUD | Controller、Service、Mapper、Entity、API、页面和请求文件完整 |
-| GEN-006 | 生成权限契约 | 后端注解、PermissionButton、menu.sql 三处同码；AI 生成时每个业务菜单使用简洁中文名，不暴露表名或技术前缀，并幂等登记到目标项目权限菜单 |
+| GEN-006 | 生成权限契约 | 后端注解、PermissionButton、kaiwu/menus.yml 三处同码；AI 生成时每个业务菜单使用简洁中文名，不暴露表名或技术前缀，并幂等登记到目标项目权限菜单 |
 | GEN-007 | 生成 SQL | 后端仓库包含 `sql/schema.sql` 与 Boot 模块的 `src/main/resources/db/migration/V1__*.sql` |
 | GEN-008 | 生成 AI 协作契约 | 两个仓库都带 CLAUDE.md、AGENTS.md、构建命令、确定性本地启动辅助和常见坑 |
 | GEN-009 | 生成独立制品 | 后端 ZIP 和前端 ZIP 分开下载，不生成混合仓库 ZIP |
@@ -195,7 +195,7 @@ AI 生成的工程含义以 ADR 0006 为准：AI 决定受约束的第一版业�
 | GIT-006 | Token 边界 | 只向配置的 GitLab 实例发送 token；日志、ZIP、commit message 不含 token |
 | GIT-007 | 本地交付 | 未配置 GitLab 时仍可生成并下载两个 ZIP |
 | GIT-008 | 分仓补偿 | 一侧已推送、另一侧失败时，只允许补推未成功的一侧，已成功仓库不可重写 |
-| GIT-009 | 项目工厂交付验收 | 项目工厂统一汇总生成、双制品、双仓推送状态并提供下载、重试、仓库入口和双仓本地 AI Coding 初始化命令，不再设置重复的交付中心 |
+| GIT-009 | 项目工厂交付验收 | 项目工厂统一汇总生成状态与双制品并提供下载、重试；平台不再推送 Git 服务，也不提供本地 AI Coding 入口，取回后由用户的 AI 工具继续开发（ADR 0038），不设置重复的交付中心 |
 
 ### 4.7 CI 与 GitOps
 

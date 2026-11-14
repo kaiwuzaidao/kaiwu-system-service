@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.kaiwuzaidao</groupId>
         <artifactId>kaiwu-system</artifactId>
-        <version>0.1.0</version>
+        <version>0.2.0</version>
     </parent>
 
     <artifactId>kaiwu-system-api</artifactId>
@@ -18,6 +18,11 @@
         <dependency>
             <groupId>jakarta.validation</groupId>
             <artifactId>jakarta.validation-api</artifactId>
+        </dependency>
+        <!-- 仅注解：让可选字段在为空时不出现在 JSON 里（Jackson 3 仍沿用该注解包）。 -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
         </dependency>
     </dependencies>
 </project>

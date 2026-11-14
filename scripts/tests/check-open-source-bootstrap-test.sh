@@ -52,4 +52,6 @@ if [[ -n "$hits" ]]; then
   exit 1
 fi
 
+sh "$repo_dir/scripts/tests/check-worktree-bootstrap-test.sh"
+
 echo "开源工作区初始化契约检查通过。"

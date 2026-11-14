@@ -36,7 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class ApiContractTest {
 
-    private static final Path SNAPSHOT = Path.of("../docs/api-contract.txt");
+    private static final Path CONTRACT_FILE = Path.of("../docs/api-contract.txt");
 
     /** 生成时登记的 Controller 与契约类型；新增模块要同步补进来。 */
     private static final List<Class<?>> CONTROLLERS = List.of(
@@ -51,26 +51,31 @@ class ApiContractTest {
 </#list>
     );
 
+    /**
+     * 验证当前 Controller 暴露的接口与已提交的契约快照一致。
+     *
+     * @throws IOException 契约快照无法读取时抛出
+     */
     @Test
     void apiContractMatchesCommittedSnapshot() throws IOException {
         List<String> described = describe();
         String current = String.join("\n", described) + "\n";
 
         if (Boolean.getBoolean("kaiwu.api-contract.update")) {
-            Files.createDirectories(SNAPSHOT.getParent());
-            Files.writeString(SNAPSHOT, current);
+            Files.createDirectories(CONTRACT_FILE.getParent());
+            Files.writeString(CONTRACT_FILE, current);
             return;
         }
 
-        if (!Files.exists(SNAPSHOT)) {
-            Files.createDirectories(SNAPSHOT.getParent());
-            Files.writeString(SNAPSHOT, current);
+        if (!Files.exists(CONTRACT_FILE)) {
+            Files.createDirectories(CONTRACT_FILE.getParent());
+            Files.writeString(CONTRACT_FILE, current);
             throw new AssertionError(
                     "docs/api-contract.txt 缺失，已按当前源码重新生成；请检查内容后提交。");
         }
 
         Set<String> actual = new LinkedHashSet<>(described);
-        List<String> removedOrChanged = Files.readAllLines(SNAPSHOT).stream()
+        List<String> removedOrChanged = Files.readAllLines(CONTRACT_FILE).stream()
                 .map(String::trim)
                 .filter(line -> !line.isEmpty())
                 .filter(line -> !actual.contains(line))
@@ -102,11 +107,24 @@ class ApiContractTest {
         return List.copyOf(lines);
     }
 
+    /**
+     * 读取 Controller 类级别的请求路径前缀。
+     *
+     * @param controller Controller 类型
+     * @return 路径前缀，未声明时为空字符串
+     */
     private String basePath(Class<?> controller) {
         RequestMapping mapping = controller.getAnnotation(RequestMapping.class);
         return mapping == null || mapping.value().length == 0 ? "" : mapping.value()[0];
     }
 
+    /**
+     * 列出一个处理方法声明的全部「HTTP 方法 + 路径」契约行。
+     *
+     * @param base Controller 路径前缀
+     * @param method 处理方法
+     * @return 契约行
+     */
     private List<String> endpoints(String base, Method method) {
         List<String> lines = new ArrayList<>();
         addIfPresent(lines, base, method, GetMapping.class, "GET");
@@ -117,6 +135,15 @@ class ApiContractTest {
         return lines;
     }
 
+    /**
+     * 方法带有指定映射注解时，把对应的契约行追加到结果中。
+     *
+     * @param lines 契约行结果
+     * @param base Controller 路径前缀
+     * @param method 处理方法
+     * @param annotation 映射注解类型
+     * @param httpMethod 该注解对应的 HTTP 方法
+     */
     private void addIfPresent(
             List<String> lines, String base, Method method,
             Class<? extends Annotation> annotation, String httpMethod
@@ -130,6 +157,12 @@ class ApiContractTest {
         }
     }
 
+    /**
+     * 读取映射注解声明的路径，未声明时视为空路径。
+     *
+     * @param annotation 映射注解实例
+     * @return 路径数组，至少包含一个元素
+     */
     private String[] paths(Annotation annotation) {
         try {
             String[] values = (String[]) annotation.annotationType()

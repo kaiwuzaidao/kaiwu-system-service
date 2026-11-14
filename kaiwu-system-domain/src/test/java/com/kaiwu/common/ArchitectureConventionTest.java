@@ -29,10 +29,18 @@ class ArchitectureConventionTest {
 
     private static JavaClasses productionClasses;
 
+    /**
+     * 只导入本仓的生产类。
+     *
+     * <p>Starter 同样位于 {@code com.kaiwu} 包前缀下，但它是发给业务项目的 SDK，自带的 JDBC 文件记录、
+     * 写账本等实现遵循业务项目的约定，不受平台数据层规则约束；把它算进来会让平台门禁对一个外部依赖报错。
+     * 排除按路径而不是按 jar 判断：reactor 中的 {@code kaiwu-system-api} 也以 jar 形式出现在 classpath 上。</p>
+     */
     @BeforeAll
     static void importClasses() {
         productionClasses = new ClassFileImporter()
                 .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+                .withImportOption(location -> !location.contains("/com/kaiwu/starter/"))
                 .importPackages("com.kaiwu");
     }
 
@@ -54,9 +62,41 @@ class ArchitectureConventionTest {
                 .haveSimpleNameEndingWith("Controller")
                 .should()
                 .dependOnClassesThat()
-                .resideInAPackage("..mapper..")
-                .because("Controller 必须经 Service/Repository，不得直接访问数据层");
+                .resideInAnyPackage("..mapper..", "..repository..")
+                .because("Controller 必须经 Service，不得直接访问数据层");
         rule.check(productionClasses);
+    }
+
+    @Test
+    void businessAgentAdaptersDoNotDependOnTheAgentRuntime() {
+        noClasses()
+                .that()
+                .resideInAnyPackage(
+                        "com.kaiwu.module.identity.agent..",
+                        "com.kaiwu.module.project.agent..",
+                        "com.kaiwu.module.configuration.agent..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "com.kaiwu.module.agent.controller..",
+                        "com.kaiwu.module.agent.service..",
+                        "com.kaiwu.module.agent.catalog..",
+                        "com.kaiwu.module.agent.execution..",
+                        "com.kaiwu.module.agent.planning..")
+                .because("业务接入使用窄 SPI、稳定能力码与协议值类型，不能反向调用 Agent 运行时")
+                .check(productionClasses);
+    }
+
+    @Test
+    void localAgentSpiDoesNotDependOnBusinessPackages() {
+        noClasses()
+                .that()
+                .resideInAPackage("com.kaiwu.port.agent..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAPackage("com.kaiwu.module..")
+                .because("公共 Agent SPI 必须由平台核心和业务分类共同使用，不归属任一业务分类")
+                .check(productionClasses);
     }
 
     /**

@@ -6,8 +6,16 @@ metadata:
   labels:
     {{- include "kaiwu.labels" . | nindent 4 }}
 data:
-  {{- range $path, $_ := .Files.Glob "files/migrations/*.sql" }}
-  {{ base $path }}: |-
-{{ $.Files.Get $path | nindent 4 }}
+  {{- if eq .Values.database.type "mysql" }}
+  check-flyway-compatibility.sh: |
+{{ .Files.Get "files/check-flyway-compatibility.sh" | indent 4 }}
+  {{- end }}
+  {{- $pattern := "files/migrations/*.sql" }}
+  {{- if eq .Values.database.type "dm" }}
+  {{- $pattern = "files/migrations-dm/*.sql" }}
+  {{- end }}
+  {{- range $path, $_ := .Files.Glob $pattern }}
+  {{ base $path }}: |
+{{ $.Files.Get $path | indent 4 }}
   {{- end }}
 {{- end }}
