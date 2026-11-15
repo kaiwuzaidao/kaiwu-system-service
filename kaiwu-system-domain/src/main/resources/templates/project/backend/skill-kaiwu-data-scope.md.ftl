@@ -31,10 +31,7 @@ description: 新增或修改业务表、列表/详情/导出/统计接口、Agen
    `kaiwu.data-scope.members.system-address`、`kaiwu.data-scope.members.credential`（带 `member:read` 的项目服务凭据），
    或自己注册一个 `MemberDirectory` Bean。
 
-**用项目工厂生成时**：DDL 里的表同时含 `owner_user_id` 与 `owner_dept_id`，就会自动按数据范围生成——实体归属字段带注解、
-`SaveRequest` 不含归属字段、Service 不手写归属条件、两个归属列各补一个单列索引、`kaiwu/data-scopes.yml` 已声明该资源、
-pom 已依赖 `kaiwu-data-scope`。只含 `owner_user_id` 的表仍是旧的「仅本人」(`OWNER_ONLY`)，那是另一套手写机制，不要与数据范围混用。
-需要补的只有：配置 `KAIWU_MEMBER_CREDENTIAL`（用到 `reassign` 时）、批量转移接口、测试。
+**项目工厂交付后**：在业务后端新增表和实体时，按下面的清单建立索引、声明受控资源和验证行级权限。脚手架本身不包含你的业务数据模型。
 
 ## 受控资源清单（逐项打勾）
 
@@ -81,8 +78,10 @@ pom 已依赖 `kaiwu-data-scope`。只含 `owner_user_id` 的表仍是旧的「�
 ## 完成前
 
 ```bash
-bash scripts/verify.sh            # 含 DataScopeConventionTest
-./kaiwu project sync .            # 看计划，确认资源已列入（--apply 才写入平台）
+bash scripts/verify.sh            # 在业务后端根目录执行，含 DataScopeConventionTest
+
+# 切换到 Kaiwu 入口仓目录，将路径替换为实际业务后端仓，再预览清单
+./kaiwu project sync /path/to/business-service
 ```
 
 ## 门禁能查什么、查不到什么

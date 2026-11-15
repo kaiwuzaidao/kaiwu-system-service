@@ -21,6 +21,12 @@ services:
     build:
       context: ../..
       dockerfile: Dockerfile
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "--max-time", "3", "http://127.0.0.1:8080/actuator/health/readiness"]
+      interval: 5s
+      timeout: 4s
+      start_period: 20s
+      retries: 12
     restart: unless-stopped
     environment:
       DB_HOST: mysql

@@ -34,7 +34,7 @@ kaiwu:
     audience: kaiwu-${projectCode}-service
     project-code: ${projectCode}
     agent:
-      # 默认关闭。当前生成仓库固定的 Starter 0.1.0 尚无 Agent Handler SPI；先升级已发布并验收的版本。
+      # 默认关闭；配置能力注册凭据并实现业务 Handler 后再启用。
       enabled: ${r"${KAIWU_AGENT_ENABLED:false}"}
       system-base-url: ${r"${KAIWU_SYSTEM_SERVICE_URI:}"}
       credential: ${r"${KAIWU_AGENT_REGISTRY_CREDENTIAL:}"}

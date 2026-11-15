@@ -6,7 +6,9 @@
 > 第一次只走一条最短路径：**不开 AI、不配 Nacos、不碰 Kubernetes**。
 > 先把平台跑起来，生成一个基础项目，再从工作台进入它。
 
-走完本文，你会得到两个真正属于业务团队的独立仓库：
+本文以订单中心演示。创建自己的项目时，请替换项目名称、编码和包名；后续路径、端口和命令以生成仓的 README 为准。
+
+走完本文，你会得到两个业务团队维护的独立仓库：
 
 ```text
 business/
@@ -16,6 +18,8 @@ business/
 
 生成完成后，Kaiwu 继续治理项目、成员、角色和统一入口，但不再覆盖业务源码。后续开发直接使用
 团队熟悉的 IDE、AI Coding 工具和 Git 流程。
+
+本教程用订单中心演示。创建自己的项目时，请统一替换项目名称、编码及其派生路径。已有同名项目先查状态，成功生成后直接取回。
 
 ## 这次只做 5 件事
 
@@ -33,7 +37,7 @@ business/
 
 ### 准备工具
 
-只体验平台需要 Git、Docker Compose v2 和 OpenSSL。继续开发生成项目还需要：
+只体验平台需要 Git、Docker Compose v2、OpenSSL 和 curl。继续开发生成项目还需要：
 
 - JDK 21、Maven 3.9+
 - Node.js 20+、pnpm 10.8
@@ -56,18 +60,18 @@ openssl version
 从 `kaiwu` 开源主页进入，入口会在被忽略的 `workspace/` 中准备四个运行仓：
 
 ```bash
-git clone <kaiwu 主页仓库地址> kaiwu
+git clone --branch v0.2.0 --depth 1 https://github.com/kaiwuzaidao/kaiwu.git kaiwu
 cd kaiwu
 ./kaiwu doctor
-./kaiwu up
+KAIWU_DB_TYPE=mysql ./kaiwu up
 ```
 
 脚本会自动生成本地密钥、执行 Flyway，并启动 MySQL、Redis、System、Gateway 和 Web。
 
 使用 Colima 时，将源码克隆到虚拟机已共享的目录。容器需要读取源码中的绑定挂载配置文件。
 
-- **Release 版本**直接拉取发布好的 System、Gateway、Web 镜像（`ghcr.io/kaiwuzaidao/kaiwu-*:<版本>`），
-  不在本机构建，首次启动只需几分钟；拉取失败时自动改为本机构建。
+- **Release 版本**优先拉取发布好的 System、Gateway、Web 镜像（`ghcr.io/kaiwuzaidao/kaiwu-*:<版本>`）；
+  拉取失败时自动改为本机构建，首次耗时取决于镜像、依赖下载和机器配置。
 - **源码开发态**（各仓默认分支）没有对应镜像，会在本机构建，第一次需要下载构建依赖，耗时较长。
 - 想在 Release 版本上也本机构建：`./kaiwu up --build`。
 - 访问 GHCR 受限时，可把 `KAIWU_IMAGE_REGISTRY` 设为可访问的镜像仓库或代理（同步了这三个镜像即可），
@@ -298,7 +302,7 @@ cd <工作目录>/kaiwu
 ./kaiwu project entry order-center 订单管理 http://kaiwu-order-center-service:8080  # 登记已部署后台
 ```
 
-只新增、不删除。然后在「项目管理 → 角色与菜单」中分配权限。这些清单属于平台，不能写进业务数据库。
+同步会新增或更新清单声明的元数据，具体变更先看预览；运行配置值按现有覆盖保留。然后在「项目管理 → 角色与菜单」中分配权限。这些清单属于平台，不能写进业务数据库。
 </details>
 
 ---
@@ -346,7 +350,7 @@ cd <工作目录>/kaiwu
 | --- | --- |
 | 平台起不来 | `./kaiwu logs` |
 | `8000` 或 `8088` 被占用 | 为本次安装同时指定独立的 `COMPOSE_PROJECT_NAME`、`KAIWU_WEB_PORT` 和 `KAIWU_GATEWAY_PORT` |
-| 业务后端缺 Context 公钥 | 重新执行 `kaiwu.sh context-public-key` 并重启后端 |
+| 业务后端缺 Context 公钥 | 在入口仓重新执行 `./kaiwu context-public-key` 并重启后端 |
 | 业务健康但 API 返回 401 | 请求是否绕过 Gateway 直连了业务端口 |
 | 业务 API 返回 404 | Route 文件位置、路径前缀和 Gateway 状态 |
 | 业务 API 返回 403 | 用户是否为 ACTIVE 项目成员，角色是否有权限 |

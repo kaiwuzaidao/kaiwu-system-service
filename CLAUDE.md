@@ -16,7 +16,7 @@
 - Secret 不得写入仓库；Nacos bootstrap 凭据由环境变量注入，环境运行值由受保护的 Nacos
   Data ID 管理。
 - `application.yml` 只做 Nacos bootstrap；`local` 运行配置放 `application-local.yml`，`dev`
-  运行配置由 Nacos Data ID 管理。禁止把 Secret 放入 Nacos。
+  运行配置由 Nacos Data ID 管理。服务器部署模板中的 Secret 使用环境变量占位符；受管开发 Data ID 的范围见 docs/NACOS.md。
 - 启动任何非 local 环境时，必须显式传入 `KAIWU_NACOS_SERVER_URL`、
   `KAIWU_NACOS_SERVER_ADDR`、`KAIWU_NACOS_NAMESPACE`、`KAIWU_NACOS_USERNAME`、
   `KAIWU_NACOS_PASSWORD`；不得在代码、Compose 或脚本中固化某环境地址、namespace 或账号。

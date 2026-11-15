@@ -63,7 +63,7 @@ ADR 0027。
 | 仓库 | 输入 | 输出 | 数据 |
 |---|---|---|---|
 | `kaiwu-gateway-service` | 外部 HTTP、Nacos 显式路由、System PROJECT 权限快照 | 统一认证、会话检查、项目入口授权、短期 Context、traceId | Redis 只读在线会话；权限快照使用本地有界缓存；无业务表 |
-| `kaiwu-system-service` | 平台管理请求、项目生成请求 | 平台 API、两个独立仓库 ZIP、一次性 GitLab 初始提交 | 只访问平台库和 Redis |
+| `kaiwu-system-service` | 平台管理请求、项目生成请求 | 平台 API、前后端两个 ZIP | 只访问平台库和 Redis |
 | `kaiwu-system-web` | 浏览器交互 | 平台管理 UI | 无数据库 |
 | `kaiwu-system-starter` | Gateway Context、目标 audience、permission code | StarterContext、权限注解结果 | 无数据库 |
 
@@ -489,58 +489,15 @@ System 的 `PermissionResolver` 读取本地 system 项目权限事实。`@Requi
 
 ## 9. 代码生成控制面
 
-### 9.0 AI 边界
+### 9.1 从项目配置生成脚手架
 
-ADR 0006 将项目工厂改为 AI 优先：模型根据业务描述和可选 DDL 生成受约束的
-`ProjectBlueprint`，其中可以包含新项目的 MySQL schema、模块说明、字段展示元数据和
-设计摘要。服务端校验蓝图后，Java、TypeScript、SQL 文件、权限、路由、Docker、CI 和
-协作契约仍全部由版本化模板确定性渲染。模型输出不是文件系统或命令执行权限。
+新建任务使用 `BASIC_SCAFFOLD`。System 校验项目、操作者权限和任务状态，再用版本化模板生成独立的前后端 ZIP。一个项目只能成功生成一次。脚手架生成失败时可在原记录上重试，成功后可重复下载同一份制品。
 
-### 9.1 单一生成元数据
+### 9.2 在业务仓库开发
 
-生成任务先构建内部 `ProjectBlueprint` 和 `GenerationSpec`：
+从入口仓执行 `./kaiwu project pull <项目编码>`，CLI 会解压两份制品并分别初始化 Git 仓库。业务表、接口、权限和页面在取回的仓库中开发。平台用清单同步项目菜单、字典与配置。远端代码仓库由团队管理。
 
-```text
-project
-tables
-fields
-dictionary bindings
-search/form metadata
-permissions
-backend repository
-frontend repository
-template version
-```
-
-Java、TypeScript 和 `kaiwu/menus.yml` 都从同一份 `permissions` 派生，避免三处漂移。
-生成成功时，同一份权限定义还会幂等写入目标项目的 `sys_project_menu`，并只授予该项目
-内置 `project-admin`。system 平台权限和业务项目权限都使用相同的 `sys_project_*` 模型，
-但严格按 `project_id` 隔离；legacy `sys_role/sys_menu` 只保留兼容，不参与登录鉴权。
-
-### 9.2 任务流程
-
-```text
-1. 校验启用项目、ACTIVE project-admin、输入模式和一项目一次约束
-2. AI_PROJECT 根据描述和可选 DDL 生成并校验 ProjectBlueprint
-3. BASIC_SCAFFOLD 跳过 AI，建立空模块 Blueprint
-4. 解析表结构并从同一份 GenerationSpec 派生权限
-5. 分别渲染后端仓库和前端仓库
-6. 创建排序与时间戳稳定的两个 ZIP
-7. 原子标记 SUCCESS 并登记目标项目菜单
-8. owner 可下载；显式 push 时只向两个空仓库的项目配置分支写入一次初始提交
-```
-
-`sys_project_generation.project_id` 唯一。生成事务失败时删除未完成 ZIP 并把同一任务标记
-为 FAILED；SUCCESS 后没有再次生成入口。GitLab 每个仓库只允许一次初始推送，不创建后续
-codegen MR。
-
-### 9.3 执行边界
-
-- System 只运行受控蓝图校验与模板渲染，不执行生成项目或模型返回的命令。
-- workspace 按 task 隔离，路径必须规范化。
-- ZIP 排除 `.git`、Secret、构建缓存和符号链接越界。
-- 下载、日志和重试必须校验任务 owner。
-- MySQL 结构导入是生成前的同步只读请求；凭据不进入任务、数据库、日志或 ZIP。
+历史任务的兼容规则见[项目工厂](PROJECT_FACTORY.md)。生成方式为何变更，见 [ADR 0038](adr/0038-deterministic-scaffold-and-ai-tool-development.md)。
 
 ## 10. 数据架构
 
@@ -558,10 +515,10 @@ sys_project_menu
 ```
 
 system 成员、角色或菜单变更后撤销受影响平台会话；下一次登录重新生成权限快照。
-左侧平台导航按该快照过滤，前端过滤不替代后端 `@RequirePermission`。全新 V1 基线
+左侧平台导航按该快照过滤，前端过滤不替代后端 `@RequirePermission`。全新 V127 基线
 直接提供当前结构，System 启动时幂等创建内置项目并收敛权限，不依赖历史迁移链。
 
-每个项目的两个仓库按类型单独登记：
+历史版本曾按类型登记项目远端仓库，以下字段用于识别旧数据：
 
 ```text
 sys_project_repository
@@ -574,7 +531,7 @@ sys_project_repository
 ```
 
 旧 `sys_project.repository_url/gitlab_project_id` 只作早期版本兼容，不再是项目工厂事实源。
-完整接口、状态机、失败恢复和 GitLab 防覆盖规则见 `docs/PROJECT_FACTORY.md`。
+当前生成、取回和失败恢复规则见[项目工厂](PROJECT_FACTORY.md)。
 
 ### 10.2 业务数据库
 
@@ -634,14 +591,13 @@ Canonical `docker-compose.yml` 放在 `kaiwu-system-service` 仓库，通过 sib
 首次部署通过统一入口选择 MySQL 或达梦 DM8；连接配置保存后复用。MySQL 可由 Compose 管理，达梦使用外部实例与独立迁移工具模块，详见 [数据库选择](DATABASES.md) 和 [ADR 0048](adr/0048-platform-mysql-and-dameng.md)。
 
 `docker compose up` 默认运行 MySQL、Redis、System、Gateway、Web。Starter 不作为容器，也不从
-sibling 源码安装；消费者只能依赖已发布到公司 Nexus 的版本化制品。
+sibling 源码安装；开源项目按发行版本从 Maven Central 引入 Starter。
 
 ## 13. Secret 与配置
 
 - 文件中只允许出现环境变量名，不允许出现真实值或默认密码。
-- 必需 Secret：数据库密码、Redis 密码、System JWT 私钥、Gateway Context 私钥、GitLab token。
+- 必需 Secret：数据库密码、Redis 密码、System JWT 私钥、Gateway Context 私钥。
 - 缺失时一次性列清单并退出。
-- GitLab token 只从环境变量注入并在 System 进程内使用，不写入数据库，也不进入任务日志、模板变量、ZIP 或 Git remote URL。
 - 前端永远不能获取 server secret。
 
 ### 13.1 统一访问日志与审计边界

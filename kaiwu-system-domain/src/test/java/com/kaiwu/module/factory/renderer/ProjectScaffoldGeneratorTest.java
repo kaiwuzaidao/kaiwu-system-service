@@ -235,6 +235,8 @@ class ProjectScaffoldGeneratorTest {
                 .contains("COPY package.json pnpm-lock.yaml .npmrc ./")
                 .contains("pnpm install --frozen-lockfile")
                 .contains("/usr/share/nginx/html/apps/order-center");
+        assertThat(generated.frontendFiles().get("deploy/server/compose.yml"))
+                .contains("http://127.0.0.1:8080/apps/order-center/index.html");
         assertThat(generated.frontendFiles().get("nginx.conf")).contains("/apps/order-center/index.html");
         assertThat(generated.backendFiles().get("kaiwu/menus.yml"))
                 .contains("permission: order:order:list")
@@ -288,6 +290,7 @@ class ProjectScaffoldGeneratorTest {
                 .contains("projectCode: order-center")
                 .contains("RewritePath=/order-center-api/(?<segment>.*), /${segment}");
         assertThat(generated.backendFiles().get("deploy/server/compose.yml"))
+                .contains("http://127.0.0.1:8080/actuator/health/readiness")
                 .contains("name: kaiwu-order-center")
                 .contains("kaiwu-order-center-service:")
                 .contains("name: ${KAIWU_PLATFORM_NETWORK:-kaiwu_default}")
@@ -322,7 +325,7 @@ class ProjectScaffoldGeneratorTest {
                 .contains("'/order-center-api': {")
                 .contains("target: 'http://127.0.0.1:8088'");
         assertThat(generated.backendFiles().get("docs/kaiwu-project-blueprint.json"))
-                .contains("\"templateVersion\": \"kaiwu-project-v26\"")
+                .contains("\"templateVersion\": \"kaiwu-project-v27\"")
                 .contains("\"accessScope\":\"OWNER_ONLY\"")
                 .contains("\"ownerColumn\":\"owner_user_id\"")
                 .contains("\"supportedLocales\": [\"zh-CN\"]");

@@ -4,7 +4,7 @@
 - 日期：2026-10-14
 - 范围：System、Gateway、Starter；未来生成模板的组织约定
 - 前置：ADR 0002、0003、0017、0020、0029、0030
-- 详细方案：[包结构与契约组织方案](../plans/2026-10-14-package-structure.md)
+- 详细方案：[包结构与契约规范](../PACKAGE_STRUCTURE.md)
 
 ## 背景
 

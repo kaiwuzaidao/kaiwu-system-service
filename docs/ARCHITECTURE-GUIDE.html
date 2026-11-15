@@ -770,7 +770,7 @@
       <div>
         <p class="kicker">AI-ready project factory · governance control plane</p>
         <h1>从业务描述，到<em>真正可接管</em>的独立项目</h1>
-        <p class="lead">Kaiwu 用统一治理和确定性工程，创建可独立交付、可由团队长期维护的业务项目。AI 可以辅助第一版业务建模，也可以完全不参与；项目生成后，团队继续使用熟悉的 AI Coding 工具或常规开发流程。</p>
+        <p class="lead">Kaiwu 用统一治理和确定性工程，创建可独立交付、可由团队长期维护的业务项目。团队取回脚手架后，可以用自己的工具开发业务功能。</p>
         <div class="hero-actions">
           <a class="button primary" href="#positioning">开始看 7 张图</a>
           <a class="button" href="QUICKSTART.md">直接开始使用</a>
@@ -793,7 +793,7 @@
   <div class="lifecycle">
     <div class="shell lifecycle-grid" aria-label="Kaiwu 生命周期摘要">
       <div class="lifecycle-item"><span class="seq-no">01 治理</span><h3>项目先有上下文</h3><p>用户、成员、角色、菜单和权限从创建项目开始统一管理。</p></div>
-      <div class="lifecycle-item"><span class="seq-no">02 生成</span><h3>AI 可选，模板确定</h3><p>AI 蓝图或基础脚手架，最终都由同一套版本化模板渲染。</p></div>
+      <div class="lifecycle-item"><span class="seq-no">02 生成</span><h3>生成基础脚手架</h3><p>平台根据项目配置，用版本化模板生成前后端两个 ZIP。</p></div>
       <div class="lifecycle-item"><span class="seq-no">03 交付</span><h3>双仓、双边界</h3><p>独立前端、后端、数据库、CI，并接入项目自己的发布路径。</p></div>
       <div class="lifecycle-item"><span class="seq-no">04 接管</span><h3>生成后平台退出</h3><p>团队自选开发工具，独立版本化、发布、扩容与回滚。</p></div>
     </div>
@@ -815,12 +815,12 @@
           <div class="plate-body">
             <pre class="mermaid">
 flowchart LR
-    Demand["业务描述&lt;br/&gt;可选 MySQL DDL"]
+    Demand["项目名称和编码"]
     subgraph Kaiwu["Kaiwu 平台 · 统一部署与治理"]
         Governance["项目治理&lt;br/&gt;用户、项目、成员、角色、菜单、审计"]
         Metadata["平台公共能力&lt;br/&gt;字典、配置、国际化"]
-        Factory["项目工厂&lt;br/&gt;AI 生成 / 基础脚手架"]
-        Blueprint["受校验的蓝图&lt;br/&gt;或基础脚手架规格"]
+        Factory["项目工厂&lt;br/&gt;基础脚手架"]
+        Blueprint["项目配置与脚手架规格"]
         Templates["版本化模板&lt;br/&gt;确定性渲染"]
         Guardrails["工程门禁&lt;br/&gt;权限、迁移、Secret、日志"]
         Governance -- "项目上下文与权限" --> Factory
@@ -844,7 +844,7 @@ flowchart LR
     Developer -- "生成后接管" --> BizService
             </pre>
           </div>
-          <p class="plate-note"><span><strong>关键边界：</strong>一个项目成功生成后不能再次生成；平台只允许向两个已验证为空的仓库分别执行一次初始推送，随后永久退出源码写入。</span></p>
+          <p class="plate-note"><span><strong>关键边界：</strong>一个项目成功生成后不能再次生成；取回后由团队自行选择远端并推送代码。</span></p>
         </figure>
       </div>
     </section>
@@ -874,7 +874,7 @@ flowchart LR
           <article class="principle"><em>PLATFORM</em><strong>平台克制，业务按需生长</strong><p>控制面聚焦通用治理、统一入口和项目工厂，业务只引入真正需要的能力。</p></article>
           <article class="principle"><em>OWNERSHIP</em><strong>治理统一，业务物理独立</strong><p>项目独立拥有仓库、数据库、部署单元、CI 和发布周期。</p></article>
           <article class="principle"><em>SOURCE OF TRUTH</em><strong>代码优先，仓库承载实现</strong><p>业务逻辑、评审和版本历史留在标准源码仓库，不依赖在线元数据运行。</p></article>
-          <article class="principle"><em>DETERMINISM</em><strong>AI 理解，模板交付</strong><p>AI 只产生受校验蓝图；Java、TypeScript、SQL、权限和 CI 由模板渲染。</p></article>
+          <article class="principle"><em>DETERMINISM</em><strong>模板与业务开发</strong><p>平台按模板生成基础工程，业务团队在取回的仓库里添加表、接口和页面。</p></article>
           <article class="principle"><em>I18N</em><strong>显示可变，协议稳定</strong><p>中文、英文、动态菜单、字典和错误统一治理；翻译不改变权限码、状态码、ID 或 Context。</p></article>
           <article class="principle"><em>QUALITY</em><strong>规范必须可以执行</strong><p>权限、迁移、分页、日志、安全与供应链规则进入本地检查和 CI。</p></article>
           <article class="principle"><em>HANDOFF</em><strong>生成是交付，不是控制</strong><p>项目只生成一次，平台随后退出写入，长期所有权属于业务团队。</p></article>
@@ -886,35 +886,23 @@ flowchart LR
       <div class="shell">
         <div class="chapter-head">
           <div class="chapter-mark"><span class="chapter-juan">卷三</span><span class="chapter-en">Project Factory</span></div>
-          <h2>AI 可以参与，但不是前置条件</h2>
-          <p><code>AI_PROJECT</code> 用于辅助形成第一版业务蓝图；<code>BASIC_SCAFFOLD</code> 完全不调用模型。两条路径最终进入同一套确定性模板和工程校验。</p>
+          <h2>生成脚手架，取回后开发</h2>
+          <p>创建任务使用 <code>BASIC_SCAFFOLD</code>。取回两个仓库后，团队可以按各自的 README 开始开发。</p>
         </div>
         <figure class="plate-fig reveal">
           <figcaption class="plate-head">
-            <span class="plate-title"><span class="plate-no">图二</span><h3>AI 可选的项目生成流水线</h3></span>
+            <span class="plate-title"><span class="plate-no">图二</span><h3>从生成脚手架到开发业务功能</h3></span>
             <span class="plate-tag">从需求到团队接管</span>
           </figcaption>
           <div class="plate-body">
             <pre class="mermaid">
 flowchart LR
-    Input["业务需求&lt;br/&gt;可选 DDL"] --> Mode{"选择生成方式"}
-    Mode -- "AI_PROJECT" --> AI["AI 生成蓝图"]
-    Mode -- "BASIC_SCAFFOLD" --> Basic["创建基础脚手架规格"]
-    AI --> Validate["服务端校验&lt;br/&gt;结构、标识符、DDL、边界"]
-    Validate --> Blueprint["ProjectBlueprint"]
-    Basic --> Render
-    Blueprint --> Render["确定性模板渲染"]
-    Render --> Verify["构建与约束校验"]
-    Verify --> Artifacts["后端 ZIP + 前端 ZIP"]
-    Artifacts --> Handoff["下载或一次初始推送&lt;br/&gt;交付独立仓库"]
-    Handoff --> Coding["团队自选 AI Coding 工具&lt;br/&gt;或常规开发流程"]
-    Coding --> ProjectCI["本地验证 + 项目 CI"]
-    ProjectCI --> Release["独立发布与回滚"]
-    AI -. "不能输出或执行" .-> Rejected["任意源码 / Shell&lt;br/&gt;权限 / 路由 / 网络指令"]
-    style AI fill:#fbf1e0,stroke:#a9701f,color:#7a5011
-    style Blueprint fill:#fbf1e0,stroke:#a9701f,color:#7a5011
-    style Render fill:#e9f0fa,stroke:#2f72c4,color:#1b4a8c
-    style Rejected fill:#fdecea,stroke:#c1483a,color:#8f2b21
+    Input["项目名称和编码"] --> Basic["BASIC_SCAFFOLD"]
+    Basic --> Render["按版本化模板生成"]
+    Render --> Artifacts["后端 ZIP 和前端 ZIP"]
+    Artifacts --> Pull["project pull 取回两个仓库"]
+    Pull --> Coding["团队或本机 AI 工具开发业务功能"]
+    Coding --> Verify["运行项目校验"]
             </pre>
           </div>
           <p class="plate-note"><span>模型没有任意文件或命令执行权。失败任务只能由 owner 在原记录上重试；<code>SUCCESS</code> 后永久锁定，不提供重新生成或覆盖已有代码的入口。</span></p>
@@ -1161,7 +1149,7 @@ flowchart LR
           <a class="reading-card" href="OVERVIEW.md"><strong>10 分钟产品概览</strong><span>先理解产品能力与使用主线</span></a>
           <a class="reading-card" href="QUICKSTART.md"><strong>从零开始使用</strong><span>本地启动与日常开发</span></a>
           <a class="reading-card" href="ARCHITECTURE.md"><strong>完整架构设计</strong><span>查看组件职责与硬约束</span></a>
-          <a class="reading-card" href="PROJECT_FACTORY.md"><strong>项目工厂</strong><span>生成状态机、制品与 GitLab 边界</span></a>
+          <a class="reading-card" href="PROJECT_FACTORY.md"><strong>项目工厂</strong><span>生成状态、制品下载与 CLI 取回</span></a>
           <a class="reading-card" href="PROJECT_ACCESS.md"><strong>项目对外访问</strong><span>路由登记与项目入口授权</span></a>
           <a class="reading-card" href="KUBERNETES.md"><strong>Kubernetes 部署</strong><span>安装、升级、回滚与运维边界</span></a>
         </div>
