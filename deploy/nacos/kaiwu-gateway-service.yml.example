@@ -55,7 +55,7 @@ spring:
             - id: system-platform
               uri: ${KAIWU_SYSTEM_SERVICE_URI:http://127.0.0.1:8080}
               predicates:
-                - Path=/api/auth/logout,/api/auth/me,/api/auth/me/locale,/api/auth/menus,/api/auth/password,/api/auth/device/*,/api/auth/device/*/approve,/api/auth/device/*/deny,/api/platform/**,/api/users/**,/api/projects/**,/api/current/**,/api/metadata/**,/api/i18n/**,/api/ai/**,/api/project-generations/**,/api/gitlab/**,/api/logs/**,/api/org/**,/api/scheduler/**,/api/search,/api/agent/**
+                - Path=/api/auth/logout,/api/auth/me,/api/auth/me/locale,/api/auth/menus,/api/auth/password,/api/auth/device/*,/api/auth/device/*/approve,/api/auth/device/*/deny,/api/platform/**,/api/users/**,/api/projects/**,/api/current/**,/api/metadata/**,/api/i18n/**,/api/ai/**,/api/project-generations/**,/api/gitlab/**,/api/logs/**,/api/org/**,/api/scheduler/**,/api/storage/accounts,/api/storage/accounts/*,/api/storage/accounts/*/test,/api/storage/bindings,/api/storage/bindings/*/status,/api/search,/api/agent/**
               metadata:
                 accessMode: PLATFORM
                 audience: kaiwu-system-service

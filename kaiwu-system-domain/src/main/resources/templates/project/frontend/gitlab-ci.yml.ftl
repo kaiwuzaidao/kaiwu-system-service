@@ -81,6 +81,7 @@ image:push:
     - . ./ci.env
     - tag="${CI_COMMIT_TAG:-${CI_COMMIT_REF_SLUG}-${CI_PIPELINE_IID}-${CI_COMMIT_SHORT_SHA}}"
     - image="$IMAGE_REGISTRY/${IMAGE_NAMESPACE}/${APP_NAME}:$tag"
+    - chmod 0644 nginx.conf
     - |
       cat >Dockerfile.ci <<DFEOF
       FROM ${WEB_RUNTIME_IMAGE}

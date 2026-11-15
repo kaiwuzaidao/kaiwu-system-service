@@ -12,4 +12,15 @@ CLI：`./kaiwu project new <项目编码> --name <项目名称> [--package <基�
 
 接口：`POST /api/project-generations` 使用 `generationMode=BASIC_SCAFFOLD`，状态、重试与下载通过 `/api/project-generations/{taskNo}` 相关接口完成。业务权限、菜单、字典及配置由生成项目后续通过清单同步。
 
+### 取回早期生成的项目
+
+如果 v0.2.0 生成的业务后端提示缺少配置，或业务前端 Nginx 提示无法读取 `default.conf`，可用修复后的 CLI 将同一份制品取回到新目录。下面以订单中心为例。
+
+```bash
+./kaiwu project pull order-center --dir ../business-recovered
+./kaiwu project-up ../business-recovered/order-center-service ../business-recovered/order-center-web
+```
+
+新目录保存的是最初生成的代码。已有业务改动请先在原仓提交，再迁移到新工作树。启动命令会检查业务后端的 readiness 和平台下的前端入口，两个地址都可访问后才登记入口。
+
 早期设计与已下线接口见 [历史记录](PROJECT_FACTORY-legacy.md)，仅供追溯。

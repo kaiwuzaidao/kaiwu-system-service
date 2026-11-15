@@ -694,13 +694,13 @@ cli_require_ok() {
   fi
 }
 
-cli_prepare_dir() {
+cli_prepare_dir() (
+  umask 077
   mkdir -p "$cli_dir"
   chmod 700 "$cli_dir"
-  umask 077
   touch "$cli_cookie_jar"
   chmod 600 "$cli_cookie_jar"
-}
+)
 
 # 用 Refresh Cookie 换取本次命令的 Access Token；会话失效时要求重新登录。
 cli_authenticate() {
@@ -1446,7 +1446,8 @@ cli_pull_repository() {
     exit 1
   fi
   mkdir -p "${work}/unzip"
-  unzip -q "$zip" -d "${work}/unzip"
+  # 旧版生成 ZIP 的时间为 Unix epoch；使用解压时间，避免首次 Maven 打包遗漏资源。
+  unzip -DD -q "$zip" -d "${work}/unzip"
   extracted="${work}/unzip"
   entries="$(find "$extracted" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')"
   if [[ "$entries" == "1" ]] && [[ -d "$(find "$extracted" -mindepth 1 -maxdepth 1)" ]]; then
@@ -1752,6 +1753,21 @@ case "$command_name" in
     echo "[4/4] 接入平台同源入口…"
     write_app_entry "$project_code"
     reload_platform_web
+    backend_binding="$(KAIWU_CONTEXT_PUBLIC_KEY="$context_public_key" docker compose -p "kaiwu-${project_code}" \
+      -f "${backend_dir}/deploy/server/compose.yml" --env-file "$secrets_file" port "kaiwu-${project_code}-service" 8080)"
+    if [[ ! "${backend_binding##*:}" =~ ^[0-9]+$ ]]; then
+      echo "无法确定业务后端的本机端口：${project_code}" >&2
+      exit 1
+    fi
+    deadline=$((SECONDS + 90))
+    until curl --noproxy '*' -fsS --max-time 3 "http://127.0.0.1:${backend_binding##*:}/actuator/health/readiness" >/dev/null 2>&1 \
+      && curl --noproxy '*' -fsS --max-time 3 "http://127.0.0.1:${KAIWU_WEB_PORT:-8000}/apps/${project_code}/index.html" >/dev/null 2>&1; do
+      if (( SECONDS >= deadline )); then
+        echo "业务后端就绪检查或前端入口未就绪：${project_code}。请检查这两个业务容器的日志。" >&2
+        exit 1
+      fi
+      sleep 2
+    done
     register_project_entry "$project_code"
     echo
     echo "${project_code} 已在本机运行：http://127.0.0.1:${KAIWU_WEB_PORT:-8000}/apps/${project_code}/"
