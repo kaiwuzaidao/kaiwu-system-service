@@ -118,7 +118,7 @@ v0.1.0 交付的模板标识为 `kaiwu-project-v13`，v0.2.0 的目标为 `kaiwu
 
 1. 先从原生成记录核对 `templateVersion`，在业务仓建立升级分支。保留原生成记录和业务源码，另建示例项目以取得本版基础脚手架，比对配置、清单、构建脚本与前后端目录。业务数据模型和 CRUD 在原业务仓中维护。逐项合并到业务仓，保留业务实现和授权定制。
 2. 按版本顺序采用相应的迁移说明。v22 调整首页和账号入口，v23 引入授权菜单和本人待办，v24 调整主题，v25 统一页面边距。见 [v22](PROJECT_FACTORY_V22_MIGRATION.md)、[v23](PROJECT_FACTORY_V23_MIGRATION.md)、[v24](PROJECT_FACTORY_V24_MIGRATION.md)、[v25](PROJECT_FACTORY_V25_MIGRATION.md)。
-3. 按发行包中的 `docs/PROJECT_FACTORY_V26_MIGRATION.md` 更新 Starter 版本。启用数据范围的项目还依赖同版本的 `kaiwu-data-scope`。两个 0.2.0 坐标发布到 Maven Central 后再构建。Spring Boot 主类应使用业务包名，如 `com.example.crm`，避免组件扫描绕过 Starter 的接口装配开关。
+3. 按发行包中的 `docs/PROJECT_FACTORY_V26_MIGRATION.md` 更新 Starter 版本。启用数据范围的项目还依赖同版本的 `kaiwu-data-scope`。两个 0.2.0 坐标均已发布到 Maven Central，按业务仓声明的版本构建。Spring Boot 主类应使用业务包名，如 `com.example.crm`，避免组件扫描绕过 Starter 的接口装配开关。
 4. 运行生成后端的 Maven 验证和前端的 `pnpm verify`。核对普通成员的菜单、待办、文件及数据权限，再按项目原有发布流程上线。
 
 ## Argo CD 服务端应用与旧迁移 ConfigMap

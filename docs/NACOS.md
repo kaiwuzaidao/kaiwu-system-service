@@ -94,7 +94,7 @@ cd kaiwu-system-service
 `KAIWU_NACOS_SERVER_URL`（HTTPS Console 配置读取地址）、`KAIWU_NACOS_SERVER_ADDR`
 （Spring Client HTTP/gRPC 直连地址）、`KAIWU_NACOS_NAMESPACE`、`KAIWU_NACOS_USERNAME`、
 `KAIWU_NACOS_PASSWORD`。HTTPS Console 域名不能替代 Client 直连地址：Nacos Client 还要连接
-gRPC 端口，且当前 Docker 网络无法解析该内网域名。脚本会把 Client 地址映射为 Spring 等价参数：
+gRPC 端口，因此要确保 Client 地址可被应用容器解析且相关端口可达。脚本会把 Client 地址映射为 Spring 等价参数：
 
 ```text
 -Dspring.profiles.active=dev
@@ -132,7 +132,7 @@ deploy/nacos/kaiwu-gateway-service.yml.example
 
 它们由各自的 `application-local.yml` 推导而来，保留了同样的 `${KAIWU_*}` 占位符——
 RSA 私钥、数据库口令、加密密钥都由进程环境注入，不会写进 Nacos。Gateway 那份含平台
-的**全部四条路由**，少一条就有页面打不开，这也是不建议手写的主要原因。
+的配套平台显式路由。使用与应用相同发行版本的模板，避免漏掉设备授权、平台 API 等入口。
 
 可以在 Nacos 控制台粘贴，也可以用脚本首发：
 

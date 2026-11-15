@@ -59,7 +59,7 @@ export KAIWU_DB_PASSWORD
 本机混合开发命令 `dev` 目前只编排内置 MySQL；外部 MySQL 或达梦使用 `up` 或按 JDBC 参数在 IDE 启动。
 `dev` 会读取同一份保存配置与 `KAIWU_RUNTIME_ENV_FILE`，复用已选口令；遇到外部数据库时在启动基础设施前拒绝运行。
 Nacos 环境可使用模板中的 `DB_JDBC_URL` 与 `DB_DRIVER` 配置达梦连接。
-平台选择只决定平台库；项目工厂当前的 DDL 导入和生成业务库仍使用 MySQL，业务数据库与平台库独立。
+平台选择只决定平台库；生成的业务脚手架默认使用独立 MySQL 数据库。业务表与迁移在业务仓库中开发。
 生成的 MySQL `menu.sql` 不能直接导入达梦；项目工厂在平台内登记菜单使用对应 Mapper 方言。
 
 ## 已有安装

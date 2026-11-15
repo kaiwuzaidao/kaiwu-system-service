@@ -96,7 +96,7 @@ docker compose --env-file ../.kaiwu-server/runtime.env \
 两点必须先确认：
 
 - **库与账号要预先建好**，账号至少对该库有建表权限；
-- **目标库应为空库**。首次启动会由 Flyway 从 V1 迁移到最新版本，等于在该库上
+- **目标库应为空库**。首次启动会由 Flyway 从 V127 基线迁移到当前版本，等于在该库上
   完整建表；库里已有更高版本的迁移记录时，`schema-compat-check` 会拒绝启动。
 
 密码来自 `runtime.env` 中的 `KAIWU_MYSQL_PASSWORD` / `KAIWU_REDIS_PASSWORD`；

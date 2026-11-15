@@ -25,37 +25,16 @@ Codex 等遵循该约定的工具打开仓库即可，不需要任何额外文�
 | 通义灵码 | `.lingma/rules/kaiwu-development.md` | 打开项目后用自然语言提出相关任务 |
 | 文心快码 Comate | `.comate/rules/kaiwu-development.mdr` | `#kaiwu-development` 或在规则面板启用 |
 
-**仓库里默认只有你在用的那个。** 生成一次是一秒，而一个没人用的适配文件在根目录上多占
-一个点目录，翻找成本天天付、收益要等到真换工具那天才兑现——所以正确的默认是不存在。
-不再用了就 `adapters remove <tool>`，别留着"万一以后要用"。
-
-用 `adapters remove` 只删这一个转发文件，目录里若还有与本适配层无关的文件（如
-`.claude/settings.json`）会原样保留。
-
-通义灵码的生效方式由 IDE 规则面板设置，文件本身不表达；首次使用时按需选择「始终生效」
-或「模型自动决策」。文心快码与 Cursor 的 `alwaysApply: false` 一致——默认手动选用，
-避免与其它规则争抢上下文。
-
-### 为什么不让工具首次打开项目时自行生成
-
-工具只会自动读**它自己认识的路径**。那个路径不存在时它什么都读不到——包括"去生成适配层"
-这条指令本身（README 不是入口，没有任何 agent 工具把它当指令自动加载）。结果是这个方案
-**只在不需要它的地方生效**：能读到引导指令的工具本来就已经拿到全部流程，真正需要转发的
-工具永远触发不了。
-
-即便绕过引导问题，让模型即兴生成也会弄丢适配层唯一的价值：内容不再逐字确定，得逐个 review
-才知道写了什么；首次打开就往仓库写文件，与本仓「未经明确授权不得覆盖已有目录」冲突；
-每次 clone 和每条 CI 都会冒出未跟踪文件。
-
-所以是**确定性生成器**，不是 AI 自举：模板固定、输出逐字可预期、可 review、可回滚，
-并由 `adapters check` 守住。
+只添加当前工具需要的适配文件。`adapters check` 可检查生成内容，`adapters remove <tool>` 可移除单个适配文件并保留同目录的其他设置。
 
 ## 2. 第一次使用
 
-先克隆唯一入口仓库：
+要用 Kaiwu 开发自己的业务项目，从[公开入口仓](https://github.com/kaiwuzaidao/kaiwu)选择稳定版，按入口仓的 `AGENTS.md` 启动平台。先确定项目名称与编码，再生成或取回已有脚手架。
+
+以下步骤面向修改 Kaiwu 平台源码的开发者。在空工作目录检出 System 仓：
 
 ```bash
-git clone https://github.com/<你的组织>/kaiwu-system-service.git
+git clone https://github.com/kaiwuzaidao/kaiwu-system-service.git
 cd kaiwu-system-service
 ```
 

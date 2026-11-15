@@ -14,7 +14,7 @@ CLI：`./kaiwu project new <项目编码> --name <项目名称> [--package <基�
 
 ### 取回早期生成的项目
 
-如果 v0.2.0 生成的业务后端提示缺少配置，或业务前端 Nginx 提示无法读取 `default.conf`，可用修复后的 CLI 将同一份制品取回到新目录。下面以订单中心为例。
+如果 v0.2.0 生成的业务后端提示缺少配置，或业务前端 Nginx 提示无法读取 `default.conf`，本分支的 CLI 修复可将同一份制品取回到新目录。使用前核对所安装的 System 版本包含该修复；原始 v0.2.0 标签未包含它。下面以订单中心为例。
 
 ```bash
 ./kaiwu project pull order-center --dir ../business-recovered

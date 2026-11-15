@@ -45,8 +45,8 @@ Gateway 要向 System 查"某人是不是某项目的 ACTIVE 成员"，这条内
 
 | 部署形态 | 服务地址填什么 | 业务项目要做什么 |
 |---|---|---|
-| **Kubernetes** | `http://kaiwu-{code}-service:8080`（Service DNS） | 什么都不用做 |
-| **Docker Compose** | `http://{code}-service:8080`（容器名） | 什么都不用做 |
+| **Kubernetes（Gateway 与业务分属不同命名空间）** | `http://kaiwu-{code}-service.<业务命名空间>.svc.cluster.local:8080`（Service DNS） | 什么都不用做 |
+| **Docker Compose** | `http://kaiwu-{code}-service:8080`（容器名） | 什么都不用做 |
 | **单实例固定地址** | `http://192.0.2.10:8080` | 什么都不用做 |
 | **VM 多实例 / 无编排器** | `lb://kaiwu-{code}-service` | 自行接入 Nacos 注册，见生成仓库 README |
 | **本地开发** | 不用填，见下方第四节 | 什么都不用做 |

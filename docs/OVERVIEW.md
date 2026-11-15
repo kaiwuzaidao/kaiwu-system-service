@@ -5,15 +5,16 @@ Kaiwu 是一个用于创建和管理业务后台项目的控制面。它把用�
 
 ## 最短体验路径
 
-第一次使用只需要 Git、Docker 和 OpenSSL：
+第一次使用需要 Git、Docker Compose v2、OpenSSL 和 curl。以下命令安装本文对应的 v0.2.0：
 
 ```bash
-git clone https://github.com/<你的组织>/kaiwu-system-service.git
-cd kaiwu-system-service
-./scripts/kaiwu.sh up
+git clone --branch v0.2.0 --depth 1 https://github.com/kaiwuzaidao/kaiwu.git
+cd kaiwu
+./kaiwu doctor
+KAIWU_DB_TYPE=mysql ./kaiwu up
 ```
 
-脚本会自动获取另外三个仓库、生成本地密钥、运行 Flyway，并启动完整平台。打开
+脚本会在 workspace/ 获取同版运行仓库、生成本地密钥、运行 Flyway，并启动完整平台。打开
 `http://127.0.0.1:8000`，使用终端打印的 admin 初始密码登录。
 
 完整步骤和故障处理见[从零开始快速使用](QUICKSTART.md)。
@@ -52,7 +53,7 @@ System Service。MySQL、Redis 和内部服务默认不暴露到宿主机或公�
 | `kaiwu-system-service` | 修改平台业务、数据库迁移、Compose 或 Helm |
 | `kaiwu-system-starter` | 让生成的业务服务接入 Kaiwu 权限上下文 |
 
-只想体验时无需逐个构建。`kaiwu.sh` 会把四个仓库放在同一父目录并统一编排。
+入口仓的 `./kaiwu` 会把四个运行仓库放在 `workspace/` 中并统一编排。
 
 ## 第一次登录后
 
@@ -62,9 +63,9 @@ System Service。MySQL、Redis 和内部服务默认不暴露到宿主机或公�
 2. 创建业务项目；
 3. 将用户加入项目并分配角色；
 4. 给角色分配菜单权限；
-5. 在项目工厂根据 DDL 生成并下载前后端代码。
+5. 在项目工厂生成前后端基础脚手架，取回后在业务仓库中开发业务功能。
 
-AI 生成、GitLab 推送、站内信投递、统一待办（[接入指南](UNIFIED_TODO.md)）是可选能力。未配置时不会影响上述基础链路。
+项目助手、站内信投递、统一待办（[接入指南](UNIFIED_TODO.md)）是可选能力。未配置时不会影响上述基础链路。
 
 ## 从本地到 Kubernetes
 

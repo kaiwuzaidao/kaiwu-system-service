@@ -5,7 +5,7 @@
 
 ## 直接从本仓启动
 
-准备 Git、Docker Compose v2 和 OpenSSL。在当前 GitHub 页面点击 **Code**，复制本仓库地址：
+准备 Git、Docker Compose v2、OpenSSL 和 curl。在当前 GitHub 页面点击 **Code**，复制本仓库地址：
 
 ```bash
 git clone <刚复制的仓库地址>
@@ -38,7 +38,7 @@ export KAIWU_REPOSITORY_REF='v0.2.0'       # 可选；Release 默认会自动选
 ./scripts/kaiwu.sh up
 ```
 
-工作区实际 commit 会记录到相邻 `.kaiwu/workspace.lock`，方便反馈问题时确认五仓版本；该运行文件
+工作区实际 commit 会记录到相邻 `.kaiwu/workspace.lock`，方便反馈问题时确认已获取仓库的版本；该运行文件
 不进入任何 Git 仓库。
 
 ## 用 AI Coding 工具继续开发
@@ -53,7 +53,7 @@ kaiwu-system-boot -> kaiwu-system-domain -> kaiwu-system-api
 
 本仓库不承载生成业务项目的业务模块或业务表。
 
-当前已完成登录鉴权最小纵切：
+平台提供以下能力：
 
 - 用户名密码登录、Access JWT、Refresh Token、登出撤销。
 - Redis 在线会话与 MySQL 会话审计事实。
@@ -69,35 +69,30 @@ kaiwu-system-boot -> kaiwu-system-domain -> kaiwu-system-api
 - 内置 `project-admin` 始终拥有 system 项目全部节点且不可编辑、停用或重授权，
   避免切断平台管理入口。
 - 项目登记、编辑、启停和归档；项目创建人自动成为内置项目管理员。
-- 每个项目绑定自己的包名、GitLab Project ID、仓库地址、默认分支和业务后台入口；
-  不存在共享仓库或 `SHARED` 创建模式。
+- 每个项目有自己的编码、基础包名、成员角色和业务后台入口，生成前后端双制品后由业务团队维护。
 - 项目成员支持多项目角色；system 项目角色控制平台，其余项目角色只控制所属业务项目。
 - 项目菜单支持树维护和按项目角色授权；当前用户接口只返回本人可访问的项目、菜单和权限。
 - 所有运行态菜单与角色授权都进入 `sys_project_*`：system 项目承载 Kaiwu 平台菜单，
   业务项目承载各自菜单，全部以 `project_id` 为边界。legacy `sys_role/sys_menu`
   仅保留为兼容种子，不再是登录鉴权事实源。
-- 项目管理接口属于平台控制面；业务服务的 PROJECT Route 仍按 ADR 0003 失败关闭。
+- 项目管理接口属于平台控制面；业务请求经显式 PROJECT Route 校验项目成员身份，再由业务服务执行权限与资源归属检查。
 - 全局/项目级应用配置，项目值覆盖全局值；敏感配置 AES-GCM 加密，管理端只返回掩码，
   业务有效配置接口永不返回敏感项。
 - 全局/项目级字典类型和字典项，支持项目继承全局并按字典值覆盖，未知值由前端原样显示。
 - 根据项目编码、名称和基础包名等配置，用确定性模板生成前后端基础脚手架；产物包含
   工程配置、平台清单、`AGENTS.md` 和 `CLAUDE.md`，可下载 ZIP 后在独立业务仓继续开发。
 - 代码生成会把三端同码权限幂等登记到所选项目的菜单树，并只自动授予该项目内置
-  `project-admin`；重复生成不会创建重复权限节点。
-- 生成任务按创建人隔离；项目绑定独立 GitLab 仓库后可创建 feature branch 和 MR，
-  GitLab 环境变量缺失时失败关闭。
+  `project-admin`。项目成功生成一次后，后续权限通过清单同步维护。
+- 生成任务的查看、重试和下载按创建人隔离；通过 ZIP 或 CLI 取回业务源码。
 - 登录成功/失败/登出日志与用户写操作审计；被动下线（管理员强制、改密码踢其它会话）
   只记操作审计，不写登录日志。
 - 安全运营中心提供登录/操作日志、在线会话和强制下线；顶栏搜索按权限过滤项目、交付和用户。
-- 项目开通向导串联项目、成员角色与一次性生成；交付中心汇总双制品和双仓推送状态。
+- 项目开通向导串联项目、成员角色与一次性生成；项目工厂汇总生成状态和前后端制品。
 
-Starter 尚未发布到公共 Maven 仓库。只有不使用 Docker、准备直接构建 Java 源码时，才需要先把
-它安装到本地 Maven 仓库：
+Starter、Data Scope 和 Excel 的 0.2.0 制品已发布到 Maven Central。直接构建本仓时，准备 JDK 21、Maven 和可用的 Docker（数据库契约测试使用 Testcontainers），再运行：
 
 ```bash
-./scripts/kaiwu.sh init
-mvn -f ../kaiwu-system-starter/pom.xml -DskipTests install
-mvn -s .mvn/settings.xml verify
+./scripts/verify.sh
 ```
 
 本地 Compose：
@@ -109,41 +104,15 @@ mvn -s .mvn/settings.xml verify
 ./scripts/kaiwu.sh down
 ```
 
-不使用 Docker、希望直接调试 Java/前端源码时，可改用 Nacos 本机进程模式：
+在 IDE 中调试平台源码时，使用混合开发模式。MySQL 和 Redis 在 Docker 中运行，System、Gateway 和 Web 在本机运行：
 
 ```bash
-# 在当前终端提供 Nacos Bootstrap 参数；MySQL、Redis 地址与凭据只在 Nacos Data ID 中配置。
-export KAIWU_NACOS_SERVER_ADDR='nacos.example.internal:8848'
-export KAIWU_NACOS_NAMESPACE='your-namespace-id'
-export KAIWU_NACOS_USERNAME='your-account'
-export KAIWU_NACOS_PASSWORD='...'
-./scripts/kaiwu.sh local-up
+./scripts/kaiwu.sh down
+./scripts/kaiwu.sh dev
 ```
 
-该模式要求本机已有 JDK 21、Maven、Node.js + pnpm；脚本只启动 System、Gateway、Web，
-三个应用以 `dev` profile 从 Nacos 分别读取 `kaiwu-system-service-dev.yml` 和
-`kaiwu-gateway-service-dev.yml`。MySQL、Redis、Nacos 和 Flyway 历史均不由脚本管理。停止与查看：
-
-```bash
-./scripts/kaiwu.sh local-status
-./scripts/kaiwu.sh local-logs
-./scripts/kaiwu.sh local-down
-```
-
-本机模式只停止自身启动的应用进程，System/Gateway 均仅绑定 `127.0.0.1`；Nacos、MySQL、
-Redis 和数据均不被修改。
-
-首次执行会自动克隆缺少的相邻仓库、生成本地开发密钥并后台启动完整环境。详细说明见
-[从零开始快速使用](docs/QUICKSTART.md)。底层手工启动仍可使用：
-
-```bash
-export KAIWU_MYSQL_ROOT_PASSWORD
-export KAIWU_MYSQL_PASSWORD
-export KAIWU_REDIS_PASSWORD
-export KAIWU_BOOTSTRAP_ADMIN_PASSWORD
-export KAIWU_CONFIG_ENCRYPTION_KEY
-./scripts/dev-run.sh
-```
+本机需要 JDK 21、Maven、Node.js 和 pnpm。已由部署方托管 MySQL、Redis 和 Nacos 的环境可以使用
+`local-up`，配置步骤见 [Nacos 本机直启](docs/NACOS.md#无-docker-的本机直启)。
 
 验收脚本：
 
@@ -156,7 +125,7 @@ export KAIWU_CONFIG_ENCRYPTION_KEY
 ./scripts/verify-project-factory.sh
 ```
 
-Compose 默认使用 Maven Central 和 npm 公共仓库下载依赖。受限网络可通过 Maven settings
+Compose 使用仓库 Maven settings 配置的 Central 镜像及 npm 公共仓库下载依赖。受限网络可通过 Maven settings
 以及 `KAIWU_NPM_REGISTRY`、`KAIWU_NPM_STRICT_SSL` 覆盖镜像源。
 
 `dev-run.sh` 在内存中生成两套开发态 RSA 密钥并通过环境变量注入容器。管理员只在空库
@@ -201,34 +170,3 @@ export KAIWU_NACOS_PASSWORD='...'
 ## License
 
 本项目基于 [Apache License 2.0](LICENSE) 开源。
-
-### 内部候选成员查询（C3开发分支）
-
-后台worker可用`member:read`服务凭据显式调用内部`members/by-role`及`members/eligibility`。
-项目归属、有效期、凭据状态和scope由System数据库验证；角色展开最多200人，超限整体422，绝不返回截断候选。
-查询仅用于候选解析及投影，用户办理授权仍使用Gateway Context和资源本地规则。
-新凭据签发开关仍默认关闭，尚未发布或部署。配置、接口和回滚约束见
-[本步骤交接](docs/verification/workflow-platform-step2-c3-20261103/HANDOFF.md)。
-
-### 受管待办协议（C2开发分支）
-
-内部`PUT /api/internal/managed-todos`及`GET /api/internal/managed-todos/receipt`使用C5的`todo:managed`凭据，
-按项目、凭据服务编码、业务键和单个收件人隔离。相同版本同内容返回DUPLICATE，不续期；同版本不同内容冲突，
-旧版本不应用，终态不能重开。工作台现有待办查询合并旧记录和受管投影，JSON字段保持兼容。
-
-`kaiwu.todo.managed-protocol-enabled`默认false，`multi-enabled`仍默认false。
-V121回填共享锁、占用域和配额前，必须停止所有旧/新投递、清理及worker；全部副本升级并对账后才能另行授权开启。
-受管清理仅按`lastSeenAt`，保留版本、摘要、dueAt及墓碑；刷新和清理共用业务键/配额锁。
-深链接只进入当前项目`/workspace/{id}`，子路由由宿主读取本项目`workspace.deep-links`配置再校验。
-本分支没有发布或部署，具体证据和回滚约束见[步骤3交接](docs/verification/workflow-platform-step3-c2-20261103/HANDOFF.md)。
-
-### 多服务登记与显式路由（C1开发分支）
-
-项目后端服务登记在`sys_project_backend_service`；`default`与原`sys_project.service_url`同事务同步。
-`kaiwu.project-backend-services.multi-enabled`默认false：关闭时沿用旧字段导出默认片段，开启后先核对default一致性，
-再允许新增/启停其他服务。管理入口同时要求平台项目权限和目标项目有效管理员身份，登记不会自动发布Gateway路由。
-
-默认服务保留`/{project}-api/**`和`kaiwu-{project}-service`，其他服务使用`/{project}-svc/{service}/**`和
-`kaiwu-{project}.{service}-service`。查看`/api/projects/{id}/gateway-routes`取得分服务片段，仍需审核后发布到受管目录。
-停用只影响后续片段，已发布路由必须另行撤销。C5凭据开关与C2受管待办开关仍独立、默认关闭。
-具体门禁、真实隔离链路及回滚要求见[步骤4交接](docs/verification/workflow-platform-step4-c1-20261103/HANDOFF.md)。
