@@ -241,7 +241,7 @@ Gateway；不能让 API 绕过 Gateway。平台项目的业务后台入口登记
 Flyway SQL 的事实源是 `sql/increment/V{n}__*.sql`。Chart 中
 `files/migrations/` 保存用于 initContainer 的同版本副本，CI 会检查二者完全一致。
 
-- 全新库从 `V1__kaiwu_baseline.sql` 建立；
+- 全新库由所选数据库的 `V127__kaiwu_baseline.sql` 一次性建表并写入种子，详见[数据库初始化](../sql/README.md)；
 - 已发布环境只追加新版本，禁止修改已经执行过的 SQL；
 - 迁移必须确定、前向；不使用普遍的 `IF NOT EXISTS` 掩盖环境结构漂移，只有明确可重试步骤才要求幂等；
 - System Pod 启动前，Flyway initContainer 会等待数据库并执行待迁移版本；
@@ -251,8 +251,8 @@ Flyway SQL 的事实源是 `sql/increment/V{n}__*.sql`。Chart 中
 新增迁移时：
 
 ```bash
-cp sql/increment/V2__example.sql \
-  deploy/helm/kaiwu/files/migrations/V2__example.sql
+cp sql/increment/V128__example.sql \
+  deploy/helm/kaiwu/files/migrations/V128__example.sql
 ```
 
 版本号按实际最新版本递增。提交前运行 CI 中相同的一致性检查。

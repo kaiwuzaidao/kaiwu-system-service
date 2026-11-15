@@ -10,7 +10,7 @@
   凭 `KAIWU_GATEWAY_INTERNAL_TOKEN` 校验；Gateway 必须缓存结果，不得每请求同步调用。
 - 数据库迁移只走 Flyway：新增 `sql/increment/V{n}__desc.sql`（版本号唯一、递增），由
   `docker-compose.yml` 的 `db-migrate` 服务用 `flyway/flyway` 镜像执行，历史落在
-  `flyway_schema_history`。`V1__kaiwu_baseline.sql` 只初始化全新空库，后续变化从 V2
+  `flyway_schema_history`。`V127__kaiwu_baseline.sql` 只初始化全新空库，后续变化从 V128
   开始追加。已发布的 V 脚本一律不可修改，修错只能追加新版本纠正。
   `sql/schema.sql` 是完整累积快照，运行时不执行，每次新增迁移需同步维护结构和 seed。
 - Secret 不得写入仓库；Nacos bootstrap 凭据由环境变量注入，环境运行值由受保护的 Nacos

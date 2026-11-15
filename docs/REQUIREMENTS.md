@@ -306,7 +306,7 @@ GitLab Token 只以 AES-GCM 密文进入 `sys_gitlab_config`；数据库导入�
 | NFR-002 | 前端使用 `@umijs/max`、AntD 5、ProComponents |
 | NFR-003 | Gateway 禁止 discovery locator，只允许显式路由 |
 | NFR-004 | 19 位 ID 在 JSON 和 TypeScript 中使用字符串 |
-| NFR-005 | 全新库从 `V1__kaiwu_baseline.sql` 初始化；后续 SQL 变更从 V2 开始递增并同步 `sql/schema.sql` |
+| NFR-005 | 全新库从 `V127__kaiwu_baseline.sql` 初始化；后续 SQL 变更从 V128 开始递增并同步 `sql/schema.sql` |
 | NFR-006 | Secret 不进入源码、配置样例、文档、日志、ZIP 或提交 |
 | NFR-007 | 禁止直接在受保护分支实现；平台与生成项目不绑定特定个人开发分支名称 |
 | NFR-008 | 每个仓库可单独 clone、build、test、deploy 和 rollback |

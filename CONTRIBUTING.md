@@ -10,6 +10,6 @@
 3. 先安装相邻 `kaiwu-system-starter`，再执行 `mvn -s .mvn/settings.xml verify`。
 4. 提交 Merge Request，并说明行为变化、测试结果、数据库和兼容性影响。
 
-`V1__kaiwu_baseline.sql` 只用于全新空库。已发布的 `sql/increment/V{n}__*.sql` 不可修改；
+`V127__kaiwu_baseline.sql` 只用于全新空库。已发布的 `sql/increment/V{n}__*.sql` 不可修改；
 数据库变化从当前最高版本继续追加。API、权限、配置、字典或菜单契约变化必须同步更新
 `sql/schema.sql`、文档和测试。

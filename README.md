@@ -183,10 +183,9 @@ export KAIWU_NACOS_PASSWORD='...'
 脚本内存中生成。详细契约见
 [docs/NACOS.md](docs/NACOS.md)。
 
-Compose 的 `db-migrate` 用 Flyway（`flyway/flyway` 镜像）执行 `sql/increment/V{n}__*.sql`，
-版本历史记录在 `flyway_schema_history`。全新库由 `V1__kaiwu_baseline.sql` 一次性创建
-完整结构和初始数据，后续变化从 V2 开始追加。项目不再兼容旧数据库自动 baseline；
-已有开发库切换时必须重建。`sql/schema.sql` 仅作累积快照，运行时不执行。
+首次安装请准备空库，Compose 会通过 Flyway 建表、写入内置数据并记录迁移历史。
+[数据库初始化](sql/README.md) 提供 MySQL 和达梦各自的 DDL、DML 下载及执行顺序。
+已有数据库请参阅[升级说明](docs/UPGRADING.md#数据库)。
 
 ## 文档
 
