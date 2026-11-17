@@ -1,10 +1,10 @@
-<#noparse>import { requestJson } from '@/services/request';
+<#noparse>import { requestJson } from './request';
 
 /**
  * 平台侧接口。本应用是 Kaiwu 平台的业务子应用，顶栏的用户、站内信、全局搜索
  * 都由平台承载，这里只做转调；业务自身的接口一律在各自的 service 文件里。
  *
- * 路径走 `/api/`（平台 Gateway），与业务的 `/</#noparse>${projectCode}<#noparse>-api/` 前缀区分开。
+ * 路径走 `/api/`（平台 Gateway），与业务的 `/{projectCode}-api/` 前缀区分开。
  */
 
 export type PlatformUser = {
@@ -96,7 +96,7 @@ export function markAllNotificationsRead() {
 }
 
 /**
- * 跳转到平台页面。子应用部署在 /apps/</#noparse>${projectCode}<#noparse>/ 下，平台在同源根路径，
+ * 跳转到平台页面。子应用部署在 /apps/{projectCode}/ 下，平台在同源根路径，
  * 因此用同源绝对路径离开子应用，不写死域名。
  */
 export function gotoPlatform(path: string) {

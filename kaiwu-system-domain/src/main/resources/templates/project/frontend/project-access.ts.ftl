@@ -1,4 +1,4 @@
-<#noparse>import { requestJson } from '@/services/request';
+<#noparse>import { kaiwuRequest } from '@/kaiwu';
 
 /**
  * 本项目的成员与角色授权接口（平台提供）。
@@ -44,11 +44,11 @@ function base(projectId: string): string {
 }
 
 export function queryAccessMembers(projectId: string) {
-  return requestJson<AccessMember[]>(`${base(projectId)}/members`, { projectId });
+  return kaiwuRequest<AccessMember[]>(`${base(projectId)}/members`, { projectId });
 }
 
 export function searchAccessCandidates(projectId: string, keyword: string) {
-  return requestJson<AccessCandidate[]>(
+  return kaiwuRequest<AccessCandidate[]>(
     `${base(projectId)}/members/candidates?keyword=${encodeURIComponent(keyword)}`,
     { projectId },
   );
@@ -59,7 +59,7 @@ export function saveAccessMember(
   userId: string,
   body: { roleIds: string[]; status: 'ACTIVE' | 'DISABLED' },
 ) {
-  return requestJson<AccessMember[]>(`${base(projectId)}/members/${encodeURIComponent(userId)}`, {
+  return kaiwuRequest<AccessMember[]>(`${base(projectId)}/members/${encodeURIComponent(userId)}`, {
     projectId,
     method: 'PUT',
     body: JSON.stringify(body),
@@ -67,25 +67,25 @@ export function saveAccessMember(
 }
 
 export function deleteAccessMember(projectId: string, userId: string) {
-  return requestJson<void>(`${base(projectId)}/members/${encodeURIComponent(userId)}`, {
+  return kaiwuRequest<void>(`${base(projectId)}/members/${encodeURIComponent(userId)}`, {
     projectId,
     method: 'DELETE',
   });
 }
 
 export function queryAccessRoles(projectId: string) {
-  return requestJson<AccessRole[]>(`${base(projectId)}/roles`, { projectId });
+  return kaiwuRequest<AccessRole[]>(`${base(projectId)}/roles`, { projectId });
 }
 
 export function queryAccessMenus(projectId: string) {
-  return requestJson<AccessMenu[]>(`${base(projectId)}/menus`, { projectId });
+  return kaiwuRequest<AccessMenu[]>(`${base(projectId)}/menus`, { projectId });
 }
 
 export function createAccessRole(
   projectId: string,
   body: { roleCode: string; roleName: string; description?: string },
 ) {
-  return requestJson<AccessRole>(`${base(projectId)}/roles`, {
+  return kaiwuRequest<AccessRole>(`${base(projectId)}/roles`, {
     projectId,
     method: 'POST',
     body: JSON.stringify(body),
@@ -97,7 +97,7 @@ export function updateAccessRole(
   roleId: string,
   body: { roleName: string; description?: string },
 ) {
-  return requestJson<AccessRole>(`${base(projectId)}/roles/${encodeURIComponent(roleId)}`, {
+  return kaiwuRequest<AccessRole>(`${base(projectId)}/roles/${encodeURIComponent(roleId)}`, {
     projectId,
     method: 'PUT',
     body: JSON.stringify(body),
@@ -109,7 +109,7 @@ export function updateAccessRoleStatus(
   roleId: string,
   status: 'ACTIVE' | 'DISABLED',
 ) {
-  return requestJson<AccessRole>(`${base(projectId)}/roles/${encodeURIComponent(roleId)}/status`, {
+  return kaiwuRequest<AccessRole>(`${base(projectId)}/roles/${encodeURIComponent(roleId)}/status`, {
     projectId,
     method: 'PUT',
     body: JSON.stringify({ status }),
@@ -117,7 +117,7 @@ export function updateAccessRoleStatus(
 }
 
 export function grantAccessRoleMenus(projectId: string, roleId: string, menuIds: string[]) {
-  return requestJson<AccessRole>(`${base(projectId)}/roles/${encodeURIComponent(roleId)}/menus`, {
+  return kaiwuRequest<AccessRole>(`${base(projectId)}/roles/${encodeURIComponent(roleId)}/menus`, {
     projectId,
     method: 'PUT',
     body: JSON.stringify({ menuIds }),
@@ -125,7 +125,7 @@ export function grantAccessRoleMenus(projectId: string, roleId: string, menuIds:
 }
 
 export function deleteAccessRole(projectId: string, roleId: string) {
-  return requestJson<void>(`${base(projectId)}/roles/${encodeURIComponent(roleId)}`, {
+  return kaiwuRequest<void>(`${base(projectId)}/roles/${encodeURIComponent(roleId)}`, {
     projectId,
     method: 'DELETE',
   });

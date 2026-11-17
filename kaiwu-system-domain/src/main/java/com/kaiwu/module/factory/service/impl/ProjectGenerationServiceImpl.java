@@ -74,8 +74,7 @@ public class ProjectGenerationServiceImpl implements ProjectGenerationService {
     public ProjectGenerationView create(ProjectGenerationCreateRequest request, String ownerUserId) {
         requireSupportedMode(request.generationMode());
         ProjectView project = projects.requireProjectAdmin(request.projectId(), ownerUserId);
-        if ("BASIC_SCAFFOLD".equals(request.generationMode())
-                && (StringUtils.hasText(request.ddl()) || StringUtils.hasText(request.businessDescription()))) {
+        if (StringUtils.hasText(request.ddl()) || StringUtils.hasText(request.businessDescription())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "基础脚手架不接收业务描述或 DDL，业务功能请在生成后开发", "api.common.badRequest");
         }
         String taskNo = "PG-" + System.currentTimeMillis() + "-"
@@ -156,8 +155,7 @@ public class ProjectGenerationServiceImpl implements ProjectGenerationService {
         String businessDescription =
                 request == null ? row.businessDescription() : normalize(request.businessDescription());
         String ddl = request == null ? row.ddlContent() : normalize(request.ddl());
-        if ("BASIC_SCAFFOLD".equals(row.generationMode())
-                && (StringUtils.hasText(ddl) || StringUtils.hasText(businessDescription))) {
+        if (StringUtils.hasText(ddl) || StringUtils.hasText(businessDescription)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "基础脚手架不接收业务描述或 DDL", "api.common.badRequest");
         }
         if (!repository.updateAndRetry(taskNo, ownerUserId, businessDescription, ddl)) {
@@ -167,10 +165,10 @@ public class ProjectGenerationServiceImpl implements ProjectGenerationService {
         return toView(requireOwned(taskNo, ownerUserId));
     }
 
-    /** 只允许新建或重试基础脚手架；历史任务仍可查看和下载。 */
+    /** 只允许新建或重试基础脚手架或前端纳管任务；历史任务仍可查看和下载。 */
     private static void requireSupportedMode(String generationMode) {
-        if (!"BASIC_SCAFFOLD".equals(generationMode)) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "该生成模式已下线，请使用基础脚手架", "api.common.badRequest");
+        if (!"BASIC_SCAFFOLD".equals(generationMode) && !"ADOPT_FRONTEND".equals(generationMode)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "该生成模式已下线，请使用基础脚手架或已有前端纳管", "api.common.badRequest");
         }
     }
 
@@ -219,8 +217,10 @@ public class ProjectGenerationServiceImpl implements ProjectGenerationService {
             GeneratedRepositories generated = scaffoldGenerator.generate(project, blueprint);
             backendArtifact = artifactService.createProjectArtifact(
                     taskNo, "BACKEND", project.projectCode(), generated.backendFiles());
-            frontendArtifact = artifactService.createProjectArtifact(
-                    taskNo, "FRONTEND", project.projectCode(), generated.frontendFiles());
+            if (!generated.frontendFiles().isEmpty()) {
+                frontendArtifact = artifactService.createProjectArtifact(
+                        taskNo, "FRONTEND", project.projectCode(), generated.frontendFiles());
+            }
             String finalBackendArtifact = backendArtifact;
             String finalFrontendArtifact = frontendArtifact;
             transactionTemplate.executeWithoutResult(status -> {
@@ -238,7 +238,9 @@ public class ProjectGenerationServiceImpl implements ProjectGenerationService {
                     row.ownerUserId(),
                     "TASK",
                     project.projectName() + " 生成成功",
-                    "第一版后端与前端仓库已生成，请下载 ZIP，再用 AI 工具继续开发。",
+                    generated.frontendFiles().isEmpty()
+                            ? "配套后端已生成，原前端继续在业务仓维护。"
+                            : "第一版后端与前端仓库已生成，请下载 ZIP，再用 AI 工具继续开发。",
                     "/project-factory");
         } catch (Exception exception) {
             if (backendArtifact != null) {

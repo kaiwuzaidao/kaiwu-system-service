@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore } from 'react';
+<#noparse>import { useEffect, useSyncExternalStore } from 'react';
 
 const ACCESS_REQUEST = 'KAIWU_ACCESS_REQUEST';
 const ACCESS_RESPONSE = 'KAIWU_ACCESS_RESPONSE';
@@ -122,3 +122,4 @@ export function useHostAccessBridge(): void {
     };
   }, []);
 }
+</#noparse>

@@ -88,6 +88,9 @@ final class BackendScaffoldRenderer {
         files.put("docs/PACKAGE_STRUCTURE.md", templates.render("project/backend/PACKAGE_STRUCTURE.md.ftl", variables));
         files.put("docs/JAVA_STYLE.md", templates.render("project/backend/JAVA_STYLE.md.ftl", variables));
         files.put(
+                "scripts/MenuPermissions.java",
+                templates.render("project/backend/MenuPermissions.java.ftl", variables));
+        files.put(
                 "scripts/check-permission-seed.sh",
                 templates.render("project/backend/check-permission-seed.sh.ftl", variables));
         files.put(

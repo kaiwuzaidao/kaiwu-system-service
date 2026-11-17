@@ -20,7 +20,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class ProjectScaffoldGenerator {
 
-    public static final String TEMPLATE_VERSION = "kaiwu-project-v26";
+    public static final String TEMPLATE_VERSION = "kaiwu-project-v29";
 
     /**
      * 生成项目依赖的 Starter 版本，也是项目体检判断平台当前版本的唯一事实源。
@@ -65,6 +65,14 @@ public class ProjectScaffoldGenerator {
         boolean dataScoped = blueprint.tables().stream().anyMatch(TableMeta::dataScoped);
         root.put("dataScoped", dataScoped);
         Map<String, String> backend = backendRenderer.root(root, project, blueprint);
+        if ("ADOPT_FRONTEND".equals(blueprint.generationMode())) {
+            // 已有前端持有唯一平台清单；后端交付独立构建脚手架。
+            backendRenderer.complete(backend, project, List.of());
+            backend.keySet().removeIf(path -> path.startsWith("kaiwu/"));
+            backend.put("docs/kaiwu-project-blueprint.json", projectManifest(project, blueprint, List.of()));
+            backend.put("kaiwu/frontend-manifests", project.projectCode() + "-web\n");
+            return new GeneratedRepositories(Map.copyOf(backend), Map.of(), List.of());
+        }
         Map<String, String> frontend = frontendRenderer.root(root);
         List<GeneratedModule> modules = renderModules(project, blueprint);
 
@@ -105,7 +113,7 @@ public class ProjectScaffoldGenerator {
         String moduleLines = modules.stream()
                 .map(module ->
                         """
-                    {"table":"%s","moduleCode":"%s","permissionPrefix":"%s","accessScope":"%s","ownerColumn":%s}"""
+                    {"table":"%s","moduleCode":"%s","permissionPrefix":"%s","accessScope":"%s","ownerColumn":%s,"apiPath":"/api/%s/%s","primaryKey":"%s"}"""
                                 .formatted(
                                         ScaffoldTemplateSupport.json(
                                                 module.table().getTableName()),
@@ -118,7 +126,10 @@ public class ProjectScaffoldGenerator {
                                                         + ScaffoldTemplateSupport.json(module.table()
                                                                 .ownerColumn()
                                                                 .getColumnName())
-                                                        + "\""))
+                                                        + "\"",
+                                        module.moduleCode(),
+                                        module.resourceCode(),
+                                        module.table().primaryKey().getFieldName()))
                 .reduce((left, right) -> left + ",\n" + right)
                 .orElse("");
         return """
@@ -127,6 +138,7 @@ public class ProjectScaffoldGenerator {
                   "templateVersion": "%s",
                   "projectId": "%s",
                   "projectCode": "%s",
+                  "projectName": "%s",
                   "generationMode": "%s",
                   "designSummary": "%s",
                   "supportedLocales": ["zh-CN"],
@@ -139,6 +151,7 @@ public class ProjectScaffoldGenerator {
                         TEMPLATE_VERSION,
                         project.id(),
                         ScaffoldTemplateSupport.json(project.projectCode()),
+                        ScaffoldTemplateSupport.json(project.projectName()),
                         ScaffoldTemplateSupport.json(blueprint.generationMode()),
                         ScaffoldTemplateSupport.json(blueprint.designSummary()),
                         moduleLines);

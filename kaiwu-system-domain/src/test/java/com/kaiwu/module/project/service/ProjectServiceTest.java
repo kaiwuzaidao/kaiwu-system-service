@@ -100,7 +100,13 @@ class ProjectServiceTest {
         assertThat(created.id()).hasSize(19);
         verify(repository)
                 .createProject(
-                        eq(created.id()), eq("demo"), eq("演示项目"), isNull(), eq("1"), eq("com.kaiwu.business.demo"));
+                        eq(created.id()),
+                        eq("demo"),
+                        eq("演示项目"),
+                        isNull(),
+                        eq("1"),
+                        eq("com.kaiwu.business.demo"),
+                        isNull());
         verify(repository)
                 .createRole(anyString(), eq(created.id()), eq("project-admin"), eq("项目管理员"), anyString(), eq(true));
         verify(repository).upsertMember(created.id(), "1", "ACTIVE");

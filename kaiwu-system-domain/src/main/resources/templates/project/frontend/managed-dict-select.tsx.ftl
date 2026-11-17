@@ -1,6 +1,6 @@
-import { Select, Tag, type SelectProps } from 'antd';
+<#noparse>import { Select, Tag, type SelectProps } from 'antd';
 import React from 'react';
-import useManagedDictionary from '@/hooks/useManagedDictionary';
+import { useDict } from '@/kaiwu';
 
 export interface ManagedDictSelectProps extends Omit<SelectProps<string | string[]>, 'options'> {
   dictCode: string;
@@ -10,7 +10,7 @@ export default function ManagedDictSelect({
   dictCode,
   ...selectProps
 }: ManagedDictSelectProps): React.ReactElement {
-  const options = useManagedDictionary(dictCode);
+  const options = useDict(dictCode);
   return (
     <Select<string | string[]>
       {...selectProps}
@@ -21,3 +21,4 @@ export default function ManagedDictSelect({
     />
   );
 }
+</#noparse>

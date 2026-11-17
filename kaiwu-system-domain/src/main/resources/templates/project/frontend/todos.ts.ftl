@@ -1,4 +1,4 @@
-<#noparse>import { requestJson } from '@/services/request';
+<#noparse>import { kaiwuRequest } from '@/kaiwu';
 
 export interface ProjectTodo {
   id: string;
@@ -23,7 +23,7 @@ export async function queryProjectTodos(projectCode: string, current: number) {
     size: '20',
     status: 'OPEN',
   });
-  const page = await requestJson<TodoPage>(`/api/current/todos?${query}`);
+  const page = await kaiwuRequest<TodoPage>(`/api/current/todos?${query}`);
   if (!page || !Array.isArray(page.records) || typeof page.total !== 'number')
     throw new Error('Invalid todo page');
   return page;

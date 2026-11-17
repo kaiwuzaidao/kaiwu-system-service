@@ -11,7 +11,7 @@ import {
 import { App, Popconfirm, Space } from 'antd';
 import { useIntl } from '@umijs/max';
 import { useEffect, useRef, useState } from 'react';
-import { useProjectConfigNumber } from '@/hooks/useProjectConfig';
+import { useProjectConfigNumber } from '@/kaiwu';
 import ManagedDictSelect from '@/components/ManagedDictSelect';
 import ManagedDictText from '@/components/ManagedDictText';
 import PermissionButton from '@/components/PermissionButton';

@@ -1,6 +1,6 @@
 <#noparse>import { AutoComplete, Input, Spin, Typography } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { globalSearch, gotoPlatform, type SearchItem } from '@/services/platform';
+import { globalSearch, gotoPlatform, type SearchItem } from '@/kaiwu';
 import LineIcon from '@/components/LineIcon';
 
 const TYPE_LABEL: Record<SearchItem['type'], string> = {

@@ -90,8 +90,14 @@ public class ProjectRepository implements ProjectMembershipPort {
     }
 
     public void createProject(
-            String id, String code, String name, String description, String createdBy, String packageName) {
-        mapper.createProject(id, code, name, normalize(description), createdBy, packageName);
+            String id,
+            String code,
+            String name,
+            String description,
+            String createdBy,
+            String packageName,
+            String repositoryUrl) {
+        mapper.createProject(id, code, name, normalize(description), createdBy, packageName, repositoryUrl);
     }
 
     /**

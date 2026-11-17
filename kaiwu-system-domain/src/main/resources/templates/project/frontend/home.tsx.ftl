@@ -1,7 +1,7 @@
 <#noparse>import { PageContainer } from '@ant-design/pro-components';
 import { Link, useIntl } from '@umijs/max';
 import { Alert, Button, Card, Col, Empty, Row, Skeleton, Typography } from 'antd';
-import { useProjectAccess } from '@/providers/ProjectAccessProvider';
+import { useProjectAccess } from '@/kaiwu';
 
 // prettier-ignore
 const entries: { path: string; key: string; permission: string }[] = [

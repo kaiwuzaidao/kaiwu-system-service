@@ -3,7 +3,7 @@ import { Alert, App, Button, Form, Input, Modal, Popconfirm, Space, Table, Tag, 
 import type { DataNode } from 'antd/es/tree';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import PermissionButton from '@/components/PermissionButton';
-import { useProjectAccess } from '@/providers/ProjectAccessProvider';
+import { useProjectAccess } from '@/kaiwu';
 import {
   createAccessRole,
   deleteAccessRole,

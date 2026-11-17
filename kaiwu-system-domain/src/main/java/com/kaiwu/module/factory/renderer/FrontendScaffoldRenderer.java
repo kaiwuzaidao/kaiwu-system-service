@@ -16,6 +16,31 @@ final class FrontendScaffoldRenderer {
 
     Map<String, String> root(Map<String, Object> variables) {
         Map<String, String> files = new LinkedHashMap<>();
+        for (String path : List.of(
+                "src/providers/ProjectAccessProvider.tsx",
+                "src/services/request.ts",
+                "src/services/platform.ts",
+                "src/utils/accessToken.ts",
+                "src/hooks/useProjectId.ts",
+                "src/hooks/useManagedDictionary.ts",
+                "src/hooks/useProjectConfig.ts",
+                "scripts/check-kaiwu-sdk.mjs",
+                "scripts/frontend-permissions.mjs",
+                "docs/kaiwu-integration-lock.json",
+                "src/kaiwu/index.tsx",
+                ".gitlab/merge_request_templates/Product-Handoff.md",
+                "mock/index.ts",
+                "mock-support/platform.ts",
+                "mock-support/shared.ts",
+                "mock-support/http.ts",
+                "mock-support/manifest.cjs",
+                "mock-support/manifest.d.cts",
+                "scripts/check-dist.mjs",
+                "scripts/check-runtime-image.sh",
+                ".dockerignore",
+                "mock-support/requests.ts")) {
+            files.put(path, templates.render("project/frontend/product/" + path + ".ftl", variables));
+        }
         files.put(
                 ".npmrc",
                 """
@@ -46,7 +71,7 @@ final class FrontendScaffoldRenderer {
         files.put(
                 "src/components/LineIcon/index.tsx", templates.render("project/frontend/line-icon.tsx.ftl", variables));
         files.put(
-                "src/providers/ProjectAccessProvider.tsx",
+                "src/kaiwu/ProjectAccessProvider.tsx",
                 templates.render("project/frontend/project-access-provider.tsx.ftl", variables));
         files.put(
                 "src/components/PermissionButton/index.tsx",
@@ -68,14 +93,14 @@ final class FrontendScaffoldRenderer {
         files.put(
                 "src/components/ManagedDictText/index.tsx",
                 templates.render("project/frontend/managed-dict-text.tsx.ftl", variables));
-        files.put("src/hooks/useProjectId.ts", templates.render("project/frontend/use-project-id.ts.ftl", variables));
+        files.put("src/kaiwu/useProjectId.ts", templates.render("project/frontend/use-project-id.ts.ftl", variables));
         files.put(
-                "src/hooks/useManagedDictionary.ts",
+                "src/kaiwu/useManagedDictionary.ts",
                 templates.render("project/frontend/use-managed-dictionary.ts.ftl", variables));
         files.put(
-                "src/hooks/useProjectConfig.ts",
+                "src/kaiwu/useProjectConfig.ts",
                 templates.render("project/frontend/use-project-config.ts.ftl", variables));
-        files.put("src/services/request.ts", templates.render("project/frontend/request.ts.ftl", variables));
+        files.put("src/kaiwu/request.ts", templates.render("project/frontend/request.ts.ftl", variables));
         // 项目成员与角色授权：平台提供接口，每个业务后台默认带这两个页面（权限码 access:*）。
         files.put(
                 "src/services/projectAccess.ts", templates.render("project/frontend/project-access.ts.ftl", variables));
@@ -95,8 +120,8 @@ final class FrontendScaffoldRenderer {
                     templates.render("project/frontend/project-files.tsx.ftl", variables));
         }
         // 平台侧接口（用户、站内信、全局搜索、可切换项目）的统一转调。
-        files.put("src/services/platform.ts", templates.render("project/frontend/platform.ts.ftl", variables));
-        files.put("src/utils/accessToken.ts", templates.render("project/frontend/access-token.ts.ftl", variables));
+        files.put("src/kaiwu/platform.ts", templates.render("project/frontend/platform.ts.ftl", variables));
+        files.put("src/kaiwu/accessToken.ts", templates.render("project/frontend/access-token.ts.ftl", variables));
         files.put(
                 "scripts/check-dict-consistency.mjs",
                 templates.render("project/frontend/check-dict-consistency.mjs.ftl", variables));
@@ -108,6 +133,7 @@ final class FrontendScaffoldRenderer {
                 templates.render("project/frontend/check-log-redaction.mjs.ftl", variables));
         files.put(
                 "scripts/check-constraints.sh", templates.render("project/common/check-constraints.sh.ftl", variables));
+        files.put("scripts/dev-real.cjs", templates.render("project/frontend/dev-real.cjs.ftl", variables));
         files.put("scripts/dev.sh", templates.render("project/frontend/dev.sh.ftl", variables));
         files.put("docs/kaiwu-constraints.json", templates.render("project/common/constraints.json.ftl", variables));
         files.put(
@@ -344,15 +370,15 @@ final class FrontendScaffoldRenderer {
                   routes: [
                     %s
                   ],
-                  // 独立 `pnpm dev` 时把业务请求转给本机 Gateway（8088）。
-                  // 没有这段，/%s-api/** 会打到 dev server 自己身上直接 404——
-                  // 从 Kaiwu 主站进入时走的是主站同源加载，不经过这里。
-                  proxy: {
-                    '/%s-api': {
-                      target: 'http://127.0.0.1:8088',
-                      changeOrigin: true,
-                    },
-                  },
+                  proxy:
+                    process.env.MOCK === 'none'
+                      ? Object.fromEntries(
+                          ['/api', '/%s-api', '/%s-svc'].map((path) => [
+                            path,
+                            { target: process.env.KAIWU_GATEWAY || 'http://127.0.0.1:8088', changeOrigin: true },
+                          ]),
+                        )
+                      : {},
                   npmClient: 'pnpm',
                 });
                 """

@@ -1,6 +1,6 @@
-import { Button, type ButtonProps } from 'antd';
+<#noparse>import { Button, type ButtonProps } from 'antd';
 import React from 'react';
-import { useProjectAccess } from '@/providers/ProjectAccessProvider';
+import { useCan } from '@/kaiwu';
 
 export interface PermissionButtonProps extends ButtonProps {
   permission: string;
@@ -11,6 +11,6 @@ export default function PermissionButton({
   permission,
   ...buttonProps
 }: PermissionButtonProps): React.ReactElement | null {
-  const { permissions } = useProjectAccess();
-  return permissions.has(permission) ? <Button {...buttonProps} /> : null;
+  return useCan(permission) ? <Button {...buttonProps} /> : null;
 }
+</#noparse>

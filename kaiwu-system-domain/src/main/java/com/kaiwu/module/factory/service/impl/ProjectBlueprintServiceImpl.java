@@ -37,14 +37,15 @@ public class ProjectBlueprintServiceImpl implements ProjectBlueprintService {
      * 由 DDL 生成受管的项目蓝图（ADR 0006）；蓝图校验后才交给确定性脚手架。
      */
     public ProjectBlueprint create(ProjectView project, ProjectGenerationCreateRequest request) {
-        if ("BASIC_SCAFFOLD".equals(request.generationMode())) {
+        if ("BASIC_SCAFFOLD".equals(request.generationMode()) || "ADOPT_FRONTEND".equals(request.generationMode())) {
             return new ProjectBlueprint(
-                    "BASIC_SCAFFOLD",
+                    request.generationMode(),
                     null,
                     null,
                     "基础空项目脚手架",
                     List.of(),
-                    blueprintJson(project, "BASIC_SCAFFOLD", null, "基础空项目脚手架", "DETERMINISTIC_FALLBACK", List.of()));
+                    blueprintJson(
+                            project, request.generationMode(), null, "基础空项目脚手架", "DETERMINISTIC_FALLBACK", List.of()));
         }
         if ("DDL_SCAFFOLD".equals(request.generationMode())) {
             return ddlScaffold(project, request);

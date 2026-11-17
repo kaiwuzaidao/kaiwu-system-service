@@ -1,6 +1,6 @@
-import { requestJson } from '@/services/request';
-import { currentAccessToken, whenAccessTokenSettled } from '@/utils/accessToken';
-import { readProjectId } from '@/hooks/useProjectId';
+import { kaiwuRequest } from '@/kaiwu';
+import { currentAccessToken, whenAccessTokenSettled } from '@/kaiwu';
+import { readProjectId } from '@/kaiwu';
 
 /**
  * 本项目「文件」管理页接口（kaiwu-system-starter 提供，数据在本项目自己的库里，ADR 0041）。
@@ -38,15 +38,15 @@ function toQuery(params: Record<string, unknown>): string {
 }
 
 export function queryProjectFiles(params: Record<string, unknown>) {
-  return requestJson<ProjectFilePage>(`${API_BASE}?${toQuery(params)}`);
+  return kaiwuRequest<ProjectFilePage>(`${API_BASE}?${toQuery(params)}`);
 }
 
 export function deleteProjectFile(id: string) {
-  return requestJson<void>(`${API_BASE}/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  return kaiwuRequest<void>(`${API_BASE}/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
 export function queryFileDownload(id: string) {
-  return requestJson<FileDownload>(`${API_BASE}/${encodeURIComponent(id)}/download`);
+  return kaiwuRequest<FileDownload>(`${API_BASE}/${encodeURIComponent(id)}/download`);
 }
 
 /**

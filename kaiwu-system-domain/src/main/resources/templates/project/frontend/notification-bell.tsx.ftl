@@ -7,7 +7,7 @@ import {
   markNotificationRead,
   queryNotifications,
   type PlatformNotification,
-} from '@/services/platform';
+} from '@/kaiwu';
 import LineIcon from '@/components/LineIcon';
 
 /**

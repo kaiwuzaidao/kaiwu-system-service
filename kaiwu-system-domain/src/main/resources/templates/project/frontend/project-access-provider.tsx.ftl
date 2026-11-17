@@ -7,9 +7,9 @@
   useState,
   type ReactNode,
 } from 'react';
-import useProjectId from '@/hooks/useProjectId';
-import { requestJson } from '@/services/request';
-import { useAccessTokenVersion, useHostAccessBridge } from '@/utils/accessToken';
+import useProjectId from './useProjectId';
+import { requestJson } from './request';
+import { useAccessTokenVersion, useHostAccessBridge } from './accessToken';
 import { getLocale, setLocale } from '@umijs/max';
 
 const EMPTY_PERMISSIONS: ReadonlySet<string> = new Set<string>();

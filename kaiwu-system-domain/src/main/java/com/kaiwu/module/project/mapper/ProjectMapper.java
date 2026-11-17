@@ -143,9 +143,9 @@ public interface ProjectMapper {
             """
             INSERT INTO sys_project
                 (id, project_code, project_name, description, status, created_by,
-                 built_in, package_name, default_branch, created_at, updated_at)
+                 built_in, package_name, repository_url, default_branch, created_at, updated_at)
             VALUES (#{id}, #{code}, #{name}, #{description}, 'ACTIVE', #{createdBy}, 0,
-                    #{packageName}, 'main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    #{packageName}, #{repositoryUrl}, 'main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             """)
     int createProject(
             @Param("id") String id,
@@ -153,7 +153,8 @@ public interface ProjectMapper {
             @Param("name") String name,
             @Param("description") String description,
             @Param("createdBy") String createdBy,
-            @Param("packageName") String packageName);
+            @Param("packageName") String packageName,
+            @Param("repositoryUrl") String repositoryUrl);
 
     @Update(
             """

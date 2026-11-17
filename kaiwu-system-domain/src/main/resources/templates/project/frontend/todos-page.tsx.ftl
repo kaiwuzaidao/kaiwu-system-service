@@ -2,8 +2,8 @@
 import { history, useIntl } from '@umijs/max';
 import { Alert, Button, Empty, Space, Table, Typography } from 'antd';
 import { useEffect, useState } from 'react';
-import { useProjectAccess } from '@/providers/ProjectAccessProvider';
-import { useAccessTokenVersion } from '@/utils/accessToken';
+import { useProjectAccess } from '@/kaiwu';
+import { useAccessTokenVersion } from '@/kaiwu';
 import { queryProjectTodos, todoRoute, type ProjectTodo } from '@/services/todos';
 
 /** 待办状态由来源服务维护；列表仅展示和跳转，不提供手工完成按钮。 */

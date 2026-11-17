@@ -104,7 +104,13 @@ public class ProjectServiceImpl implements ProjectService {
                     ? request.packageName().trim()
                     : defaultPackageName(code);
             repository.createProject(
-                    projectId, code, request.projectName().trim(), request.description(), actor.userId(), packageName);
+                    projectId,
+                    code,
+                    request.projectName().trim(),
+                    request.description(),
+                    actor.userId(),
+                    packageName,
+                    request.repositoryUrl());
             repository.syncDefaultBackendService(projectId);
             repository.createRole(adminRoleId, projectId, "project-admin", "项目管理员", "拥有当前项目全部菜单与权限", true);
             repository.upsertMember(projectId, actor.userId(), "ACTIVE");

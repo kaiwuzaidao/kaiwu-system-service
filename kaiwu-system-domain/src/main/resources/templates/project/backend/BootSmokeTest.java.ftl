@@ -65,6 +65,15 @@ class BootSmokeTest {
         }
     }
 
+    /** 校验未映射路径的实体响应，防止被统一异常出口吞成 500。 */
+    @Test
+    void missingPathReturnsNotFound() throws Exception {
+        var request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/missing-smoke-resource")).build();
+        var response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+        assertThat(response.statusCode()).isEqualTo(404);
+        assertThat(response.body()).contains("error.resource.notFound");
+    }
+
     @Test
     void startsAndReportsHealthy() throws Exception {
         // 用 JDK 自带的 HttpClient，不依赖任何被自动装配的 Web 客户端 Bean——

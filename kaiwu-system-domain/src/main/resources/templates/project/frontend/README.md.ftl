@@ -32,10 +32,9 @@ pnpm run setup
 pnpm dev
 ```
 
-默认监听 `http://127.0.0.1:${localWebPort}`（可通过 `PORT=xxxx pnpm dev` 改端口）。
+开发服务器启动后，在打印的地址打开 `/__mock/`，选择编辑或只读身份。演示数据保存在开发进程内存中，重启或在面板点击重置即可清空。业务模块按蓝图注册；新页面的交互可在 `mock-support/` 补充。
 
-dev server 已把 `/${projectCode}-api/**` 代理到本机 Gateway `8088`，因此独立启动时业务接口
-也能打通——前提是 Gateway 已按 `docs/gateway-route-local.yml` 登记本项目路由，且按方式 B 注入令牌。
+后端联调使用 `pnpm dev:real`（启动助手默认此模式）。平台 `/api`、`/${projectCode}-api` 和 `/${projectCode}-svc` 转发到 Gateway，默认 `http://127.0.0.1:8088`，可通过 `KAIWU_GATEWAY` 修改。
 
 生产构建：`pnpm build`；类型检查：`pnpm typecheck`。
 
@@ -65,20 +64,11 @@ http://127.0.0.1:8000/apps/${projectCode}/?projectId=${projectId}
 
 ### 方式 B：独立开发时手动注入 token
 
-不想每次都过主站？先在主站登录一次，浏览器 F12 拿到 access token（形如 `eyJ...`），
-在**本前端页面**的浏览器控制台跑：
+在受信任的同源开发宿主中打开应用，由已有会话桥发送短期令牌；单独调试时可在启动前引导内存令牌。应用 URL 需要携带真实的 projectId。
 
-```js
-window.__KAIWU_ACCESS_TOKEN__ = 'eyJ...'
-location.reload()
-```
+### 方式 C：本地演示
 
-或在渲染前调用 `configureAccessToken(token)`。**令牌不会持久化**，刷新页面失效属正常。
-
-### 方式 C：只看界面壳，不调真实接口
-
-直接打开 `http://127.0.0.1:${localWebPort}/apps/${projectCode}/`。没有 token 时权限接口不会发请求，页面框架能出来，
-业务接口会 401。**仅用于调整视觉**。
+运行 `pnpm dev`，打开 `/__mock/` 选择身份。
 
 ## 部署交付
 

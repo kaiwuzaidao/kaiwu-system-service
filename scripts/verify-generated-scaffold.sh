@@ -22,18 +22,43 @@ mvn -q -s .mvn/settings.xml \
   -Dtest=ProjectScaffoldGeneratorTest \
   -Dsurefire.failIfNoSpecifiedTests=false test
 
-mvn -q -s .mvn/settings.xml \
-  -f "${sample_root}/backend/pom.xml" verify
+# 用 CLI 相同的 unzip 流程验证首次构建，捕获制品时间戳导致的 Maven 资源遗漏。
+backend="$(mktemp -d)"
+trap 'rm -rf "$backend"' EXIT
+unzip -q "$sample_root/sample-backend-order-center.zip" -d "$backend"
+mvn -q -s .mvn/settings.xml -f "$backend/pom.xml" verify
 
 # 门禁脚本本身也必须在真实产物上跑通：新生成的项目第一次跑 CI 就红是不可接受的。
-bash "${sample_root}/backend/scripts/check-permission-seed.sh"
-bash "${sample_root}/backend/scripts/check-test-baseline.sh" --strict
-sh "${sample_root}/backend/scripts/check-constraints.sh"
+bash "$backend/scripts/check-permission-seed.sh"
+bash "$backend/scripts/check-test-baseline.sh" --strict
+sh "$backend/scripts/check-constraints.sh"
 sh "${sample_root}/frontend/scripts/check-constraints.sh"
 
 cd "${sample_root}/frontend"
 corepack pnpm install --frozen-lockfile --ignore-scripts
 corepack pnpm run setup
-KAIWU_SERVICE_DIR="${sample_root}/backend" corepack pnpm verify
+KAIWU_SERVICE_DIR="$backend" corepack pnpm verify
+
+# 相同菜单改为行内 YAML 后，前后端应继续通过；普通菜单上的同名字段不能代替 BUTTON。
+menu="$backend/kaiwu/menus.yml"
+node - "$menu" <<'JS'
+const fs = require('node:fs'), yaml = require('js-yaml'), file = process.argv[2];
+const menus = yaml.safeLoad(fs.readFileSync(file, 'utf8'));
+fs.writeFileSync(file, yaml.safeDump(menus, { flowLevel: 0 }));
+JS
+bash "$backend/scripts/check-permission-seed.sh"
+KAIWU_SERVICE_DIR="$backend" corepack pnpm check:perm
+node - "$menu" <<'JS'
+const fs = require('node:fs'), yaml = require('js-yaml'), file = process.argv[2];
+const menus = yaml.safeLoad(fs.readFileSync(file, 'utf8'));
+const button = menus.flatMap(menu => menu.children).find(node => node.type === 'BUTTON');
+button.type = 'MENU';
+button.path = '/permission-check';
+fs.writeFileSync(file, yaml.safeDump(menus, { flowLevel: 0 }));
+JS
+if bash "$backend/scripts/check-permission-seed.sh" >"$backend/check.log" 2>&1; then exit 1; fi
+grep -q '无 BUTTON 声明' "$backend/check.log"
+if KAIWU_SERVICE_DIR="$backend" corepack pnpm check:perm >"$backend/check.log" 2>&1; then exit 1; fi
+grep -q '无 BUTTON 声明' "$backend/check.log"
 
 echo "生成后端三模块和分层前端的真实构建与权限/字典门禁验证通过。"

@@ -56,6 +56,28 @@
     </dependencyManagement>
     <build>
         <plugins>
+            <!-- 静态权限检查使用 Spring Boot 管理的 YAML 解析器。仅在脚本显式调用时复制。 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <inherited>false</inherited>
+                <executions>
+                    <execution>
+                        <id>menu-yaml</id>
+                        <configuration>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>org.yaml</groupId>
+                                    <artifactId>snakeyaml</artifactId>
+                                    <version>${r"${snakeyaml.version}"}</version>
+                                    <outputDirectory>${r"${project.build.directory}"}/menu-check</outputDirectory>
+                                    <destFileName>snakeyaml.jar</destFileName>
+                                </artifactItem>
+                            </artifactItems>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <!-- ADR 0020：自动格式化是可执行默认值，不作为业务合并阻断条件。 -->
             <plugin>
                 <groupId>com.diffplug.spotless</groupId>

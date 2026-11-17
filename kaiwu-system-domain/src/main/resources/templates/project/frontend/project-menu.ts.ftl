@@ -1,5 +1,5 @@
 <#noparse>import type { MenuDataItem } from '@ant-design/pro-components';
-import type { ProjectNavigationMenu } from '@/providers/ProjectAccessProvider';
+import type { ProjectNavigationMenu } from '@/kaiwu';
 
 /** 业务菜单来自平台当前用户的授权结果；内置自服务入口不依赖角色菜单种子。 */
 export function projectMenu(

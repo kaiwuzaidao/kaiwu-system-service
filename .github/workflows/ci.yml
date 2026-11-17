@@ -44,6 +44,16 @@ jobs:
       - name: Verify
         working-directory: kaiwu-system-service
         run: mvn -B verify
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify product frontend adoption and generated projects
+        working-directory: kaiwu-system-service
+        run: |
+          corepack enable
+          python3 -m unittest discover -s scripts/tests -p 'test_product_adopt.py'
+          bash scripts/tests/check-cli-commands-test.sh
+          bash scripts/verify-generated-scaffold.sh
       - name: Verify first-install database selection
         working-directory: kaiwu-system-service
         run: |
