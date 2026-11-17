@@ -20,7 +20,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class ProjectScaffoldGenerator {
 
-    public static final String TEMPLATE_VERSION = "kaiwu-project-v27";
+    public static final String TEMPLATE_VERSION = "kaiwu-project-v28";
 
     /**
      * 生成项目依赖的 Starter 版本，也是项目体检判断平台当前版本的唯一事实源。
