@@ -51,6 +51,9 @@ importers:
         specifier: ^18.3.1
         version: 18.3.1(react@18.3.1)
     devDependencies:
+      js-yaml:
+        specifier: 3.15.2
+        version: 3.15.2
       '@playwright/test':
         specifier: ^1.62.0
         version: 1.62.0

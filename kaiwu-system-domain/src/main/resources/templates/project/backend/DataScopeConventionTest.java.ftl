@@ -23,7 +23,9 @@ import org.junit.jupiter.api.Test;
  */
 class DataScopeConventionTest {
 
-    private static final Path MANIFEST = Path.of("../kaiwu/data-scopes.yml");
+    private static final Path MANIFEST = Files.exists(Path.of("../kaiwu/frontend-manifests"))
+            ? Path.of(System.getenv().getOrDefault("KAIWU_FRONTEND_DIR", "../../${projectCode}-web")).resolve("kaiwu/data-scopes.yml")
+            : Path.of("../kaiwu/data-scopes.yml");
 
     private static final List<Path> JAVA_ROOTS = List.of(
             Path.of("src/main/java"),

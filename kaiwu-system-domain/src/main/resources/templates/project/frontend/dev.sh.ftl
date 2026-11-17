@@ -17,4 +17,4 @@ if [[ ! -d node_modules ]]; then
 fi
 pnpm run setup
 pnpm typecheck
-PORT=${r"${PORT:-"}${localWebPort}} pnpm dev
+PORT=${r"${PORT:-"}${localWebPort}} pnpm dev:real

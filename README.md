@@ -33,7 +33,7 @@ cd kaiwu-system-service
 
 ```bash
 export KAIWU_REPOSITORY_BASE_URL='https://github.com/kaiwuzaidao'
-export KAIWU_REPOSITORY_REF='v0.2.0'       # 可选；Release 默认会自动选择同名 tag
+export KAIWU_REPOSITORY_REF='v0.3.0'       # 可选；Release 默认会自动选择同名 tag
 ./scripts/kaiwu.sh repositories            # 先确认将要访问的地址
 ./scripts/kaiwu.sh up
 ```

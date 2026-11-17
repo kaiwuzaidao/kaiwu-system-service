@@ -1,6 +1,6 @@
-import { getIntl, getLocale } from '@umijs/max';
-import { currentAccessToken, whenAccessTokenSettled } from '@/utils/accessToken';
-import { readProjectId } from '@/hooks/useProjectId';
+<#noparse>import { getIntl, getLocale } from '@umijs/max';
+import { currentAccessToken, whenAccessTokenSettled } from './accessToken';
+import { readProjectId } from './useProjectId';
 
 export interface ApiEnvelope<T> {
   code: number;
@@ -98,7 +98,7 @@ export async function requestJson<T>(path: string, init: JsonRequestInit = {}): 
   const headers = new Headers(initialHeaders);
   headers.set('Content-Type', 'application/json');
   const token = currentAccessToken();
-  if (token) headers.set('Authorization', `Bearer ${r"${token}"}`);
+  if (token) headers.set('Authorization', `Bearer ${token}`);
   if (projectId) headers.set('X-Project-Id', projectId);
   // 服务端据此下发对应语言的字典标签与错误消息。
   if (!headers.has('Accept-Language')) headers.set('Accept-Language', getLocale());
@@ -142,7 +142,8 @@ export async function requestJson<T>(path: string, init: JsonRequestInit = {}): 
     );
   }
   if (payload.code !== 0) {
-    throw new Error(payload.message || `请求失败（code ${r"${payload.code}"}）`);
+    throw new Error(payload.message || `请求失败（code ${payload.code}）`);
   }
   return payload.data;
 }
+</#noparse>

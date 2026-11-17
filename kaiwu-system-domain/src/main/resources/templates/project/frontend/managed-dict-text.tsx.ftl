@@ -1,6 +1,6 @@
-import { Tag, type TagProps } from 'antd';
+<#noparse>import { Tag, type TagProps } from 'antd';
 import React from 'react';
-import useManagedDictionary from '@/hooks/useManagedDictionary';
+import { useDict } from '@/kaiwu';
 
 export interface ManagedDictTextProps {
   dictCode: string;
@@ -15,7 +15,7 @@ export default function ManagedDictText({
   className,
   style,
 }: ManagedDictTextProps): React.ReactElement {
-  const options = useManagedDictionary(dictCode);
+  const options = useDict(dictCode);
   const raw = value == null ? '' : String(value);
   const option = options.find((item) => item.value === raw);
   if (option?.color) {
@@ -31,3 +31,4 @@ export default function ManagedDictText({
     </span>
   );
 }
+</#noparse>

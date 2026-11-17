@@ -1,7 +1,7 @@
-import { useCallback, useSyncExternalStore } from 'react';
-import useProjectId from '@/hooks/useProjectId';
-import { requestJson } from '@/services/request';
-import { useAccessTokenVersion } from '@/utils/accessToken';
+<#noparse>import { useCallback, useSyncExternalStore } from 'react';
+import useProjectId from './useProjectId';
+import { requestJson } from './request';
+import { useAccessTokenVersion } from './accessToken';
 
 const CONFIG_REFRESH_MS = 5 * 60 * 1000;
 const CONFIG_RETRY_MS = 5 * 1000;
@@ -91,7 +91,7 @@ function load(value: Entry): void {
   if (value.state !== 'idle' || !value.projectId) return;
   value.state = 'loading';
   void requestJson<Payload>(
-    `/api/current/projects/${r"${encodeURIComponent(value.projectId)}"}/configs`,
+    `/api/current/projects/${encodeURIComponent(value.projectId)}/configs`,
     { projectId: value.projectId },
   )
     .then((payload) => {
@@ -152,3 +152,4 @@ export function useProjectConfigBoolean(key: string, fallback = false): boolean 
   if (raw === undefined || raw === '') return fallback;
   return raw.trim().toLowerCase() === 'true';
 }
+</#noparse>

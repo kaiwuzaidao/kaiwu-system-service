@@ -90,6 +90,7 @@ image:push:
       EXPOSE 8080
       DFEOF
     - docker build --label "org.opencontainers.image.revision=$CI_COMMIT_SHA" -f Dockerfile.ci -t "$image" .
+    - sh scripts/check-runtime-image.sh "$image" </#noparse>${projectCode}<#noparse>
     - set -o pipefail
     - docker push "$image" 2>&1 | tee push.log
     - "digest=\"$(sed -nE 's/.*digest: (sha256:[0-9a-f]+).*/\\1/p' push.log | tail -1)\""

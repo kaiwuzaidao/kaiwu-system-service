@@ -22,7 +22,7 @@ import { useEffect, useState } from 'react';
 import LineIcon from '@/components/LineIcon';
 import GlobalSearch from '@/components/GlobalSearch';
 import NotificationBell from '@/components/NotificationBell';
-import { readProjectId } from '@/hooks/useProjectId';
+import { readProjectId } from '@/kaiwu';
 import {
   fetchCurrentUser,
   fetchMyProjects,
@@ -30,7 +30,7 @@ import {
   platformLogout,
   type PlatformProjectSummary,
   type PlatformUser,
-} from '@/services/platform';
+} from '@/kaiwu';
 
 /**
  * 顶部操作栏（V5，与平台顶栏一致）：切换项目、全局搜索、站内信与当前用户。

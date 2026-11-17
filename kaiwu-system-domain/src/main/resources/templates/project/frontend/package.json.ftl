@@ -5,10 +5,11 @@
   "license": "Apache-2.0",
   "scripts": {
     "dev": "max dev",
-    "build": "max build",
+    "dev:real": "node scripts/dev-real.cjs",
+    "build": "max build && node scripts/check-dist.mjs",
     "typecheck": "tsc --noEmit",
     "check:dict": "node scripts/check-dict-consistency.mjs",
-    "check:perm": "node scripts/check-permission-consistency.mjs",
+    "check:perm": "node scripts/check-kaiwu-sdk.mjs && node scripts/check-permission-consistency.mjs",
     "check:log": "node scripts/check-log-redaction.mjs",
     "check:constraints": "sh scripts/check-constraints.sh",
     "format": "prettier --write \"{config,scripts,src}/**/*.{js,mjs,ts,tsx}\" \"*.{js,json,ts}\"",
@@ -31,6 +32,7 @@
     "@types/node": "^26.1.2",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "js-yaml": "3.15.2",
     "dotenv": "^17.4.2",
     "prettier": "3.9.6",
     "typescript": "^5.6.3"

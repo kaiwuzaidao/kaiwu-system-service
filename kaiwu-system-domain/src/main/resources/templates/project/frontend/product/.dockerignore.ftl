@@ -1,0 +1,11 @@
+<#noparse>.git
+node_modules
+.pnpm-store
+src/.umi*
+mock
+mock-support
+kaiwu
+tests
+.env*
+.kaiwu-starter
+</#noparse>

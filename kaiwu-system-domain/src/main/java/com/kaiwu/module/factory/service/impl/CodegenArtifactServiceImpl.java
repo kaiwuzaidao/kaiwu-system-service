@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
@@ -51,7 +52,8 @@ public class CodegenArtifactServiceImpl implements CodegenArtifactService {
                 for (Map.Entry<String, String> entry : new TreeMap<>(files).entrySet()) {
                     String path = safeEntry(entry.getKey());
                     ZipEntry zipEntry = new ZipEntry(path);
-                    zipEntry.setTime(0L);
+                    // DOS 可表示的固定本地时间：跨时区生成相同 ZIP，解压后 Maven 能复制资源。
+                    zipEntry.setTimeLocal(LocalDateTime.of(2000, 1, 1, 0, 0));
                     zip.putNextEntry(zipEntry);
                     zip.write(entry.getValue().getBytes(StandardCharsets.UTF_8));
                     zip.closeEntry();

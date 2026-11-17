@@ -8,6 +8,8 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -57,6 +59,13 @@ public class GlobalExceptionHandler {
         args.put("detail", detail);
         return ResponseEntity.badRequest().body(Result.error(
                 HttpStatus.BAD_REQUEST.value(), detail, "error.validation.failed", args));
+    }
+
+    /** 路径尚未映射到业务接口或静态资源时，保留 HTTP 404。 */
+    @ExceptionHandler({NoResourceFoundException.class, NoHandlerFoundException.class})
+    public ResponseEntity<Result<Void>> handleNotFound() {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Result.error(
+                HttpStatus.NOT_FOUND.value(), "接口或资源不存在", "error.resource.notFound", null));
     }
 
     /**

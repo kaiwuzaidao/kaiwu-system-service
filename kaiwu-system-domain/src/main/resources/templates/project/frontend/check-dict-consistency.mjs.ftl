@@ -74,7 +74,10 @@ if (valueEnumOffenders.length > 0) {
  */
 const badCodes = [];
 walk(srcDir, (file, source) => {
-  const patterns = [/dictCode=["']([^"']+)["']/g, /useManagedDictionary\(\s*["']([^"']+)["']/g];
+  const patterns = [
+    /dictCode=["']([^"']+)["']/g,
+    /(?:useManagedDictionary|useDict)\(\s*["']([^"']+)["']/g,
+  ];
   for (const pattern of patterns) {
     for (const match of source.matchAll(pattern)) {
       if (!DICT_CODE.test(match[1])) {

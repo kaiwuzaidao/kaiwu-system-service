@@ -59,7 +59,9 @@ Usage:
   ${KAIWU_CLI_NAME} project new <code> --name <name> [--package <pkg>]  Register and generate a basic scaffold
   ${KAIWU_CLI_NAME} project status <code> [--wait]  Show or wait for the generation result
   ${KAIWU_CLI_NAME} project pull <code> [--dir <dir>]  Download, unzip and git-init both repositories
-  ${KAIWU_CLI_NAME} project sync <backend-dir> [--apply] [--with-access]  Plan or apply kaiwu/*.yml dictionaries, configs and menus (roles.yml only with --with-access)
+  ${KAIWU_CLI_NAME} workflow sync <frontend-dir> [--apply]  Plan or import workflow definitions and bindings
+  ${KAIWU_CLI_NAME} project adopt <frontend-dir> [--apply]  Register an existing frontend and generate its backend
+  ${KAIWU_CLI_NAME} project sync <manifest-dir> [--apply] [--with-access]  Plan or apply kaiwu/*.yml dictionaries, configs and menus (roles.yml only with --with-access)
   ${KAIWU_CLI_NAME} access members|roles|permissions <code>  List project members, roles or grantable permission codes
   ${KAIWU_CLI_NAME} access member-set <code> <username> --roles a,b [--disabled]  Add or update a project member
   ${KAIWU_CLI_NAME} access member-remove <code> <username>  Remove a project member
@@ -535,12 +537,22 @@ require_compose_platform() {
 }
 
 read_project_code() {
-  local backend_dir="$1" code
-  code="$(sed -nE 's/^[[:space:]]*projectCode:[[:space:]]*([a-z0-9-]+)[[:space:]]*$/\1/p' \
-    "${backend_dir}/deploy/server/gateway-route.yml" | head -1)"
+  local project_dir="$1" code_file code
+  code_file="${project_dir}/deploy/server/gateway-route.yml"
+  if [[ -f "$code_file" ]]; then
+    code="$(sed -nE 's/^[[:space:]]*projectCode:[[:space:]]*([a-z0-9-]+)[[:space:]]*$/\1/p' "$code_file" | head -1)"
+  else
+    code_file="${project_dir}/docs/kaiwu-project-blueprint.json"
+    if [[ ! -f "$code_file" ]]; then
+      echo "找不到项目编码来源：${project_dir}/deploy/server/gateway-route.yml 或 ${code_file}。" >&2
+      return 1
+    fi
+    require_tool jq
+    code="$(jq -er '.projectCode | strings | select(test("[\\r\\n]") | not)' "$code_file" 2>/dev/null)" || code=""
+  fi
   if [[ ! "$code" =~ $project_code_pattern ]]; then
-    echo "无法从 ${backend_dir}/deploy/server/gateway-route.yml 读出合法的 projectCode。" >&2
-    exit 1
+    echo "无法从 ${code_file} 读出合法的 projectCode。" >&2
+    return 1
   fi
   printf '%s' "$code"
 }
@@ -655,6 +667,9 @@ cli_http() {
   local method="$1" path="$2" body_file="${3:-}" output
   local args=(-sS -X "$method" -b "$cli_cookie_jar" -c "$cli_cookie_jar"
     -H 'Accept: application/json' -w $'\n%{http_code}')
+  if [[ -n "${CLI_WORKFLOW_PROJECT_ID:-}" && "$path" == /*-svc/workflow/* ]]; then
+    args+=(-H "X-Project-Id: ${CLI_WORKFLOW_PROJECT_ID}")
+  fi
   if [[ -n "$CLI_TOKEN" ]]; then
     args+=(-H "Authorization: Bearer ${CLI_TOKEN}")
   fi
@@ -1304,7 +1319,19 @@ cli_project_entry() {
 }
 
 cli_project_sync() {
-  local backend_dir="" apply="false" with_access="false" code files="" name file commit plan_hash missing names apply_access
+  cli_sync_manifests normal "$@"
+}
+
+cli_plan_manifests() {
+  local files="$1" commit="$2"
+  cli_http_json POST "/api/projects/${CLI_PROJECT_ID}/manifest/plan" "{\"files\":{${files}},\"gitCommit\":\"${commit}\"}"
+  cli_require_ok "计算同步计划"
+}
+
+cli_sync_manifests() {
+  local mode="$1" initial=false CLI_WITH_ACCESS=false
+  shift
+  local backend_dir="" apply="false" with_access="false" code files="" name file commit plan_hash missing names
   if [[ $# -gt 0 && "$1" != --* ]]; then
     backend_dir="$1"
     shift
@@ -1317,7 +1344,7 @@ cli_project_sync() {
     esac
   done
   if [[ -z "$backend_dir" || ! -d "$backend_dir" ]]; then
-    echo "用法：${KAIWU_CLI_NAME} project sync <业务后端仓目录> [--apply] [--with-access]" >&2
+    echo "用法：${KAIWU_CLI_NAME} project sync <业务清单仓目录> [--apply] [--with-access]" >&2
     exit 2
   fi
   backend_dir="$(cd "$backend_dir" && pwd)"
@@ -1335,13 +1362,30 @@ cli_project_sync() {
     echo "${backend_dir}/kaiwu/ 下没有 dicts.yml、configs.yml、menus.yml、jobs.yml、i18n.yml、data-scopes.yml（或 --with-access 时的 roles.yml）。" >&2
     exit 1
   fi
-  CLI_WITH_ACCESS="$with_access"
-  apply_access="$with_access"
   commit="$(git -C "$backend_dir" rev-parse HEAD 2>/dev/null || true)"
   cli_authenticate
   cli_lookup_project_id "$code"
-  cli_http_json POST "/api/projects/${CLI_PROJECT_ID}/manifest/plan" "{\"files\":{${files}},\"gitCommit\":\"${commit}\"}"
-  cli_require_ok "计算同步计划"
+  cli_plan_manifests "$files" "$commit"
+  if [[ "$mode" == adopt ]]; then
+    # 先用普通清单查平台成功移交基线。没有明确的布尔值时不能推断授权尚未导入。
+    case "$(jq -r '.data.hasBaseline | booleans | tostring' <<<"$CLI_BODY")" in
+      true) ;;
+      false)
+        initial=true
+        file="${backend_dir}/kaiwu/roles.yml"
+        if [[ -f "$file" ]]; then
+          with_access=true
+          files="${files},\"roles.yml\":\"$(cli_json_escape "$(cat "$file")")\""
+          cli_plan_manifests "$files" "$commit"
+          if ! jq -e '.data.hasBaseline == false' <<<"$CLI_BODY" >/dev/null; then
+            echo "首次同步状态已变化，请重新运行纳管以刷新计划。" >&2
+            return 1
+          fi
+        fi ;;
+      *) echo "平台没有返回可识别的清单同步基线，无法判断是否应导入授权。" >&2; return 1 ;;
+    esac
+  fi
+  CLI_WITH_ACCESS="$with_access"
   echo "项目 ${code} 的同步计划（+ 新增  ~ 更新  ! 平台多出，不会删除  - 源环境已删除，命令行不删除）："
   cli_print_plan "$CLI_BODY"
   missing="$(printf '%s' "$CLI_BODY" | grep -oE '"missingPermissions":\[[^]]*\]' | sed -E 's/.*\[(.*)\]/\1/; s/"//g')"
@@ -1350,14 +1394,15 @@ cli_project_sync() {
     [[ "$apply" == "true" ]] && exit 1
   fi
   if [[ "$apply" != "true" ]]; then
-    [[ "$CLI_PLAN_COUNT" -gt 0 ]] && echo "确认无误后执行：${KAIWU_CLI_NAME} project sync ${backend_dir} --apply$([[ "$with_access" == "true" ]] && echo " --with-access")"
+    [[ "$mode" == normal && "$CLI_PLAN_COUNT" -gt 0 ]] && echo "确认无误后执行：${KAIWU_CLI_NAME} project sync ${backend_dir} --apply$([[ "$with_access" == "true" ]] && echo " --with-access")"
     return 0
   fi
-  if [[ "$CLI_PLAN_COUNT" -eq 0 ]]; then
+  # 首次同步即使没有差异也提交一次空计划，成功回执与业务写入原子落库。
+  if [[ "$CLI_PLAN_COUNT" -eq 0 && "$initial" == false ]]; then
     return 0
   fi
   plan_hash="$(cli_json_string "$CLI_BODY" planHash)"
-  cli_http_json POST "/api/projects/${CLI_PROJECT_ID}/manifest/apply" "{\"files\":{${files}},\"gitCommit\":\"${commit}\",\"planHash\":\"${plan_hash}\",\"applyAccess\":${apply_access}}"
+  cli_http_json POST "/api/projects/${CLI_PROJECT_ID}/manifest/apply" "{\"files\":{${files}},\"gitCommit\":\"${commit}\",\"planHash\":\"${plan_hash}\",\"applyAccess\":${with_access}}"
   cli_require_ok "执行同步"
   echo "已同步 ${CLI_PLAN_COUNT} 项。新增的菜单已授予项目管理员；其它角色的授权请用 --with-access 导入，或在平台「项目管理」中分配。"
   echo "源环境已删除的条目不会由命令行删除，请在平台「配置移交」页签中逐项确认。"
@@ -1447,6 +1492,8 @@ cli_pull_repository() {
   fi
   mkdir -p "${work}/unzip"
   unzip -q "$zip" -d "${work}/unzip"
+  # 旧生成任务的 ZIP 使用 Unix 0 时间。与 Git checkout 一致，只刷新本次新解压的文件。
+  find "${work}/unzip" -type f -exec touch {} +
   extracted="${work}/unzip"
   entries="$(find "$extracted" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')"
   if [[ "$entries" == "1" ]] && [[ -d "$(find "$extracted" -mindepth 1 -maxdepth 1)" ]]; then
@@ -1480,12 +1527,6 @@ cli_project_pull() {
   require_tool git
   target_dir="${target_dir:-$(cli_default_business_dir)}"
   local backend="${target_dir}/${code}-service" frontend="${target_dir}/${code}-web"
-  for existing in "$backend" "$frontend"; do
-    if [[ -e "$existing" ]]; then
-      echo "拒绝覆盖已存在的目录：${existing}" >&2
-      exit 1
-    fi
-  done
   cli_authenticate
   cli_resolve_generation "$code"
   cli_http GET "/api/project-generations/${CLI_TASK_NO}"
@@ -1493,6 +1534,17 @@ cli_project_pull() {
   if [[ "$(cli_json_string "$CLI_BODY" status)" != "SUCCESS" ]]; then
     echo "${code} 还没有生成成功；先执行 ${KAIWU_CLI_NAME} project status ${code} --wait" >&2
     exit 1
+  fi
+  local mode
+  mode="$(cli_json_string "$CLI_BODY" generationMode)"
+  if [[ -e "$backend" || ( "$mode" != ADOPT_FRONTEND && -e "$frontend" ) ]]; then
+    echo "拒绝覆盖已存在的目录：请为业务仓选择空目录。" >&2
+    exit 1
+  fi
+  if [[ "$mode" == ADOPT_FRONTEND ]]; then
+    cli_pull_repository BACKEND "$backend"
+    echo "已取回纳管项目的配套后端：${backend}。前端沿用已登记的业务仓库。"
+    return
   fi
   cli_pull_repository BACKEND "$backend"
   cli_pull_repository FRONTEND "$frontend"
@@ -1800,10 +1852,14 @@ case "$command_name" in
   storage)
     cli_storage "$@"
     ;;
+  workflow)
+    [[ "${1:-}" == sync ]] || { echo "用法：workflow sync <前端仓> [--apply]" >&2; exit 2; }
+    shift; source "${repo_dir}/scripts/workflow-sync.sh"; cli_workflow_sync "$@" ;;
   project)
     subcommand="${1:-}"
     shift || true
     case "$subcommand" in
+      adopt) source "${repo_dir}/scripts/project-adopt.sh"; cli_project_adopt "$@" ;;
       new) cli_project_new "$@" ;;
       status) cli_project_status "$@" ;;
       pull) cli_project_pull "$@" ;;

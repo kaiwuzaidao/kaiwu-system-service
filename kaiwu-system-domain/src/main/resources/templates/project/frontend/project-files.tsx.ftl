@@ -2,7 +2,7 @@
 import { App, Button, Form, Input, Popconfirm, Space, Table } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
 import PermissionButton from '@/components/PermissionButton';
-import { useProjectAccess } from '@/providers/ProjectAccessProvider';
+import { useProjectAccess } from '@/kaiwu';
 import {
   deleteProjectFile,
   downloadRelayedFile,

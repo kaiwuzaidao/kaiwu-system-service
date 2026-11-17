@@ -3,15 +3,11 @@ import { Link, type RunTimeLayoutConfig } from '@umijs/max';
 import type { ReactNode } from 'react';
 import LineIcon, { type LineIconName } from '@/components/LineIcon';
 import RightContent, { PageBreadcrumb } from '@/components/RightContent';
-import ProjectAccessProvider, { useProjectAccess } from '@/providers/ProjectAccessProvider';
+import { useProjectAccess, useProjectConfig, readProjectId } from '@/kaiwu';
 import { projectMenu } from '@/utils/projectMenu';
-import useProjectConfig from '@/hooks/useProjectConfig';
 import { proLayoutTokens } from '@/theme/layout';
-import { readProjectId } from '@/hooks/useProjectId';
 
-export function rootContainer(container: ReactNode) {
-  return <ProjectAccessProvider>{container}</ProjectAccessProvider>;
-}
+export { rootContainer } from '@/kaiwu';
 
 /**
  * 菜单图标按路由取 线性图标。Umi 只认 Ant Design 图标名，设计稿的细线图标在这里统一替换；

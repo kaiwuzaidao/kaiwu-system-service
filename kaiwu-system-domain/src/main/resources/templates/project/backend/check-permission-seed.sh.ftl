@@ -11,10 +11,25 @@
 #
 # 退出码：0 通过；1 发现不一致。
 set -euo pipefail
+export LC_ALL=C
 
 repo_dir="$(cd "$(dirname "$0")/.." && pwd)"
 menu_file="${repo_dir}/kaiwu/menus.yml"
+if [[ -f "${repo_dir}/kaiwu/frontend-manifests" ]]; then
+  frontend_name="$(cat "${repo_dir}/kaiwu/frontend-manifests")"
+  menu_file="${KAIWU_FRONTEND_DIR:-${repo_dir}/../${frontend_name}}/kaiwu/menus.yml"
+fi
 code_pattern='[a-z][a-z0-9-]*:[a-z0-9-]+:[a-z0-9_-]+'
+
+# 注解里的权限码。目录按 *-domain 匹配，避免绑定具体项目编码。
+annotated="$(grep -rhoE '@RequirePermission\(\s*"[^"]+"' \
+  --include='*.java' "${repo_dir}"/*-domain/src/main/java 2>/dev/null \
+  | sed -E 's/.*"([^"]+)".*/\1/' | sort -u || true)"
+
+if [ -z "${annotated}" ] && { [[ -f "${menu_file}" ]] || [[ -f "${repo_dir}/kaiwu/frontend-manifests" ]]; }; then
+  echo "[check:perm] 未发现 @RequirePermission 注解，跳过比对。"
+  exit 0
+fi
 
 if [ ! -f "${menu_file}" ]; then
   echo "[check:perm] 缺少 kaiwu/menus.yml：平台无法同步本项目的菜单与权限。" >&2
@@ -22,19 +37,10 @@ if [ ! -f "${menu_file}" ]; then
   exit 1
 fi
 
-# 注解里的权限码。目录按 *-domain 匹配，避免绑定具体项目编码。
-annotated="$(grep -rhoE '@RequirePermission\(\s*"[^"]+"' \
-  --include='*.java' "${repo_dir}"/*-domain/src/main/java 2>/dev/null \
-  | sed -E 's/.*"([^"]+)".*/\1/' | sort -u || true)"
-
-if [ -z "${annotated}" ]; then
-  echo "[check:perm] 未发现 @RequirePermission 注解，跳过比对。"
-  exit 0
-fi
-
-# 清单里的权限码：每个 BUTTON 用一行 `permission: <权限码>` 声明，只认这一种写法，注释里的示例不算。
-seeded="$(sed -nE "s/^[[:space:]-]*permission:[[:space:]]*['\"]?(${code_pattern})['\"]?[[:space:]]*$/\1/p" "${menu_file}" \
-  | sort -u || true)"
+# 复用 Spring Boot 管理的 SnakeYAML；静态检查只解析清单，无需编译业务代码或启动服务。
+mvn -q -N -f "${repo_dir}/pom.xml" dependency:copy@menu-yaml
+seeded="$(java -cp "${repo_dir}/target/menu-check/snakeyaml.jar" \
+  "${repo_dir}/scripts/MenuPermissions.java" "${menu_file}" | LC_ALL=C sort -u)"
 
 failed=0
 

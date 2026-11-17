@@ -19,6 +19,8 @@
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
+import yaml from 'js-yaml';
+import { frontendPermissions } from './frontend-permissions.mjs';
 import { fileURLToPath } from 'node:url';
 
 const webRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -48,28 +50,6 @@ function walk(dir, test, visit) {
       visit(full, readFileSync(full, 'utf8'));
     }
   }
-}
-
-/** 前端权限码：覆盖 PermissionButton 的 permission 属性与 access 判断两种用法。 */
-function readFrontendCodes() {
-  const found = new Map();
-  const patterns = [
-    /permission=["']([^"']+)["']/g,
-    /permissions\.includes\(\s*["']([^"']+)["']/g,
-    /hasPermission\(\s*["']([^"']+)["']/g,
-  ];
-  walk(
-    frontendSrc,
-    (name) => /\.tsx?$/.test(name),
-    (file, source) => {
-      for (const pattern of patterns) {
-        for (const match of source.matchAll(pattern)) {
-          if (!found.has(match[1])) found.set(match[1], relative(webRoot, file));
-        }
-      }
-    },
-  );
-  return found;
 }
 
 function readManifest() {
@@ -110,20 +90,21 @@ function readBackendCodes(serviceDir) {
     );
   }
 
-  const menuFile = join(serviceDir, 'kaiwu/menus.yml');
+  const owner = existsSync(join(serviceDir, 'kaiwu/frontend-manifests')) ? webRoot : serviceDir;
+  const menuFile = join(owner, 'kaiwu/menus.yml');
   const seeded = new Set();
-  if (existsSync(menuFile)) {
-    // 清单里每个 BUTTON 用一行 `permission: <权限码>` 声明；只认这一种写法，注释里的示例不算。
-    for (const match of readFileSync(menuFile, 'utf8').matchAll(
-      /^[ \t-]*permission:[ \t]*['"]?([a-z][a-z0-9-]*:[a-z0-9-]+:[a-z0-9_-]+)['"]?[ \t]*$/gm,
-    )) {
-      seeded.add(match[1]);
+  function collect(items) {
+    for (const item of items) {
+      if (item.type === 'BUTTON') seeded.add(item.permission);
+      if (item.children) collect(item.children);
     }
   }
+  if (existsSync(menuFile))
+    collect(yaml.safeLoad(readFileSync(menuFile, 'utf8'), { schema: yaml.JSON_SCHEMA }));
   return { annotated, seeded, hasMenuFile: existsSync(menuFile) };
 }
 
-const frontend = readFrontendCodes();
+const frontend = frontendPermissions(frontendSrc);
 
 // 检查一：格式。格式错的码永远匹配不上任何后端权限，且不会有任何报错。
 const malformed = [...frontend]
@@ -165,7 +146,10 @@ if (manifest) {
 const serviceDir = process.env.KAIWU_SERVICE_DIR
   ? resolve(process.env.KAIWU_SERVICE_DIR)
   : manifest?.projectCode
-    ? resolve(webRoot, `../kaiwu-${manifest.projectCode}-service`)
+    ? [
+        resolve(webRoot, `../${manifest.projectCode}-service`),
+        resolve(webRoot, `../kaiwu-${manifest.projectCode}-service`),
+      ].find(existsSync)
     : null;
 
 if (!serviceDir || !existsSync(serviceDir)) {

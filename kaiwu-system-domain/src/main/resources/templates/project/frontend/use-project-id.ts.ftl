@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react';
+<#noparse>import { useSyncExternalStore } from 'react';
 
 const PROJECT_ID_CHANGE_EVENT = 'kaiwu:project-id-change';
 let subscriberCount = 0;
@@ -45,3 +45,4 @@ function subscribe(onChange: () => void): () => void {
 export default function useProjectId(): string {
   return useSyncExternalStore(subscribe, readProjectId, () => '');
 }
+</#noparse>

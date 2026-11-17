@@ -180,7 +180,7 @@ class ProjectScaffoldGeneratorTest {
                 .contains("import { kaiwuTheme } from '../src/theme/antd'")
                 .contains("theme: kaiwuTheme")
                 .doesNotContain("#4f46e5");
-        assertThat(generated.frontendFiles().get("src/hooks/useProjectConfig.ts"))
+        assertThat(generated.frontendFiles().get("src/kaiwu/useProjectConfig.ts"))
                 .contains("useAccessTokenVersion()")
                 .contains("entry(projectId, tokenVersion)");
         assertThat(generated.frontendFiles()).containsKeys("src/theme/tokens.ts", "src/theme/antd.ts");
@@ -216,15 +216,15 @@ class ProjectScaffoldGeneratorTest {
         assertThat(generated.frontendFiles().values())
                 .noneMatch(value -> value.matches("(?s).*\\b(10\\.\\d{1,3}|192\\.168|172\\.(1[6-9]|2\\d|3[01]))"
                         + "\\.\\d{1,3}\\.\\d{1,3}\\b.*"));
-        assertThat(generated.frontendFiles().get("src/utils/accessToken.ts"))
+        assertThat(generated.frontendFiles().get("src/kaiwu/accessToken.ts"))
                 .contains("configureAccessToken")
                 .contains("KAIWU_ACCESS_REQUEST")
                 .contains("window.location.origin");
-        assertThat(generated.frontendFiles().get("src/services/request.ts"))
+        assertThat(generated.frontendFiles().get("src/kaiwu/request.ts"))
                 .contains("requestJson")
                 .doesNotContain("localStorage")
                 .doesNotContain("sessionStorage");
-        assertThat(generated.frontendFiles().get("src/hooks/useManagedDictionary.ts"))
+        assertThat(generated.frontendFiles().get("src/kaiwu/useManagedDictionary.ts"))
                 .contains("DICTIONARY_RETRY_MS")
                 .doesNotContain("localStorage")
                 .doesNotContain("sessionStorage");
@@ -313,16 +313,16 @@ class ProjectScaffoldGeneratorTest {
                 .contains("gateway-service.yaml");
         assertThat(generated.frontendFiles().get("scripts/dev.sh"))
                 .contains("pnpm install --frozen-lockfile --ignore-scripts")
-                .contains("PORT=${PORT:-8416} pnpm dev");
+                .contains("PORT=${PORT:-8416} pnpm dev:real");
         // 端口由项目编码派生：同一台机器上跑多个生成项目不该互相顶掉。
         assertThat(generated.backendFiles().get("compose.local.yml")).contains("${DB_PORT:-3323}:3306");
         assertThat(generated.backendFiles().get("scripts/dev.sh")).contains("${SERVER_PORT:-8316}");
         // 独立 dev server 必须能把业务请求转给本机 Gateway，否则 /xxx-api 打到自己身上 404。
         assertThat(generated.frontendFiles().get("config/config.ts"))
-                .contains("'/order-center-api': {")
-                .contains("target: 'http://127.0.0.1:8088'");
+                .contains("'/api', '/order-center-api', '/order-center-svc'")
+                .contains("target: process.env.KAIWU_GATEWAY || 'http://127.0.0.1:8088'");
         assertThat(generated.backendFiles().get("docs/kaiwu-project-blueprint.json"))
-                .contains("\"templateVersion\": \"kaiwu-project-v26\"")
+                .contains("\"templateVersion\": \"kaiwu-project-v29\"")
                 .contains("\"accessScope\":\"OWNER_ONLY\"")
                 .contains("\"ownerColumn\":\"owner_user_id\"")
                 .contains("\"supportedLocales\": [\"zh-CN\"]");
@@ -491,6 +491,9 @@ class ProjectScaffoldGeneratorTest {
                 .contains("orderNo")
                 .contains("status");
 
+        var artifacts =
+                new com.kaiwu.module.factory.service.impl.CodegenArtifactServiceImpl("target/project-scaffold-sample");
+        artifacts.createProjectArtifact("sample", "BACKEND", "order-center", generated.backendFiles());
         write(Path.of("target/project-scaffold-sample/backend"), generated.backendFiles());
         write(Path.of("target/project-scaffold-sample/frontend"), generated.frontendFiles());
     }
@@ -569,7 +572,7 @@ class ProjectScaffoldGeneratorTest {
         assertThat(files.get("src/app.tsx")).contains("projectMenu(access.menus, access.permissions)");
         assertThat(files.get("src/utils/projectMenu.ts"))
                 .contains("access:member:list", "access:role:list", "file:record:list", "item.visible", "item.status");
-        assertThat(files.get("src/providers/ProjectAccessProvider.tsx")).contains("payload.menus", "setMenus([])");
+        assertThat(files.get("src/kaiwu/ProjectAccessProvider.tsx")).contains("payload.menus", "setMenus([])");
         assertThat(files.get("config/config.ts")).contains("path: '/todos'", "component: './Todos'");
         assertThat(files.get("src/services/todos.ts")).contains("/api/current/todos?", "status: 'OPEN'", "projectCode");
         assertThat(files.get("src/pages/Todos/index.tsx"))
@@ -711,11 +714,23 @@ class ProjectScaffoldGeneratorTest {
                         "src/app.tsx",
                         "src/components/RightContent/index.tsx",
                         "src/pages/Home/index.tsx");
+        assertThat(generated.frontendFiles())
+                .containsKeys("docs/kaiwu-integration-lock.json", "scripts/check-kaiwu-sdk.mjs");
         // 首页在零模块时不能渲染成半截 JSX。
         assertThat(generated.frontendFiles().get("src/pages/Home/index.tsx"))
                 .contains("PageContainer")
                 .doesNotContain("<Card title=\"\"");
         assertThat(generated.frontendFiles().get("config/config.ts")).contains("component: './Home'");
+        var adopted = new ProjectScaffoldGenerator(new CodegenTemplateRenderer())
+                .generate(
+                        project,
+                        new ProjectBlueprintService.ProjectBlueprint(
+                                "ADOPT_FRONTEND", "", "", "已有前端", List.of(), "{}"));
+        assertThat(adopted.frontendFiles()).isEmpty();
+        assertThat(adopted.backendFiles())
+                .containsKey("kaiwu/frontend-manifests")
+                .doesNotContainKey("kaiwu/menus.yml");
+        write(Path.of("target/adopt-scaffold-sample/backend"), adopted.backendFiles());
         write(Path.of("target/basic-scaffold-sample/backend"), generated.backendFiles());
         write(Path.of("target/basic-scaffold-sample/frontend"), generated.frontendFiles());
     }

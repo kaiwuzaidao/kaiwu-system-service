@@ -6,7 +6,7 @@
   不需要改契约文件；**新增模块**必须把 `permissionPrefix` 登记进
   `docs/kaiwu-project-blueprint.json` 的 `modules`，并同步补后端注解与 `kaiwu/menus.yml` 的 BUTTON。
   该文件是本仓库与后端仓库共享的模块契约，不得删除。
-- 用户可见且需要翻译或运营配置的状态/枚举走 `@/hooks/useManagedDictionary` 与
+- 用户可见且需要翻译或运营配置的状态/枚举走 `useDict` 与
   `@/components/ManagedDictSelect|ManagedDictText`，
   数据来自平台字典管理（global 字典 + 本项目覆盖项合并），禁止页面硬编码
   选项或 value→label 映射；未知值原样显示。新增枚举先到平台字典管理建
@@ -14,10 +14,10 @@
   `pnpm check:dict` 会拦住页面里的硬编码 `valueEnum` 和非法 dictCode；
   它查不了「平台上是否真配过这个字典」——那属于平台侧体检，仓库 CI 看不到。
 - 运行期可变且需要运营调整的展示参数默认走平台「参数配置」，用
-  `@/hooks/useProjectConfig` 读取；领域不变量可以留在版本化代码中：
+  `@/kaiwu` 读取；领域不变量可以留在版本化代码中：
 
   ```tsx
-  import useProjectConfig, { useProjectConfigNumber } from '@/hooks/useProjectConfig';
+  import { useProjectConfig, useProjectConfigNumber } from '@/kaiwu';
 
   const notice = useProjectConfig('order.notice.text', '');       // 必须给兜底值
   const pageSize = useProjectConfigNumber('order.page.size', 20);
@@ -43,7 +43,7 @@
 - 导出失败必须捕获并 `message.error` 提示——导出超限由后端返回 400，不提示会让用户
   以为按钮失灵。
 - Secret 不得写入源码、构建参数、日志或提交。
-- 具体分支策略由业务团队维护；本仓库生成后由业务团队独立维护。
+- 产品在 product 分支验收演示，通过 handoff/* 合并请求移交 dev，main 记录发布。从 @/kaiwu 接入平台，useCan(权限码) 直接返回布尔值。接入层由平台模板维护，check:perm 核对版本校验和。后端可对齐字段、错误提示与加载状态。交互或布局变更需产品复验；契约、Mock、规则与场景同步更新。
 - 不得把凭据或敏感个人信息写进 `console`（约束 `logging.no-sensitive-data`，MUST）：
   控制台会被录屏、被前端监控 SDK 采集、被截图发进工单。只输出标识、长度或掩码值，
   由 `pnpm check:log` 把关。

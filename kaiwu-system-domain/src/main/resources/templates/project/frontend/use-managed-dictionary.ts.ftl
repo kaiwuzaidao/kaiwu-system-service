@@ -1,7 +1,7 @@
-import { useCallback, useSyncExternalStore } from 'react';
+<#noparse>import { useCallback, useSyncExternalStore } from 'react';
 import { getLocale } from '@umijs/max';
-import useProjectId from '@/hooks/useProjectId';
-import { requestJson } from '@/services/request';
+import useProjectId from './useProjectId';
+import { requestJson } from './request';
 
 const DICTIONARY_REFRESH_MS = 5 * 60 * 1000;
 const DICTIONARY_RETRY_MS = 5 * 1000;
@@ -80,7 +80,7 @@ function load(value: Entry): void {
   if (value.state !== 'idle' || !value.projectId || !value.dictCode) return;
   value.state = 'loading';
   void requestJson<Payload>(
-    `/api/current/projects/${r"${encodeURIComponent(value.projectId)}"}/dicts/${r"${encodeURIComponent(value.dictCode)}"}`,
+    `/api/current/projects/${encodeURIComponent(value.projectId)}/dicts/${encodeURIComponent(value.dictCode)}`,
     { projectId: value.projectId },
   )
     .then((payload) => {
@@ -116,3 +116,4 @@ export default function useManagedDictionary(dictCode: string): readonly DictOpt
   );
   return useSyncExternalStore(subscribe, snapshot, () => EMPTY_OPTIONS);
 }
+</#noparse>

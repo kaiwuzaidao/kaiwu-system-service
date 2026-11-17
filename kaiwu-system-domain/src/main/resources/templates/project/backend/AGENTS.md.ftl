@@ -145,3 +145,7 @@
 业务采用 `module/分类/controller|service|repository|mapper|entity|agent`，不插入功能目录。
 Service 接口与 `service/impl` 分离；新增写 DTO 位于 API 的 `dto/request`，查询 DTO 位于 `dto/query`。
 布局门禁随 Maven verify 执行。新分类须更新契约；权限、数据范围与能力审批继续独立验证。
+
+## 产品前端交接
+
+有 `kaiwu/frontend-manifests` 时，平台清单由配套前端仓维护。校验新增业务权限时并排检出两个仓，或设置 `KAIWU_FRONTEND_DIR`。按前端的编号规则和验收场景实现业务 API，覆盖直接请求的权限反例。字段、错误提示、加载和空态可随联调调整；布局和已验收交互变动由产品复验。契约变化同步改前端 service、Mock 与验收场景。
