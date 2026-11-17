@@ -325,7 +325,7 @@ class ProjectScaffoldGeneratorTest {
                 .contains("'/order-center-api': {")
                 .contains("target: 'http://127.0.0.1:8088'");
         assertThat(generated.backendFiles().get("docs/kaiwu-project-blueprint.json"))
-                .contains("\"templateVersion\": \"kaiwu-project-v27\"")
+                .contains("\"templateVersion\": \"kaiwu-project-v28\"")
                 .contains("\"accessScope\":\"OWNER_ONLY\"")
                 .contains("\"ownerColumn\":\"owner_user_id\"")
                 .contains("\"supportedLocales\": [\"zh-CN\"]");
@@ -593,6 +593,7 @@ class ProjectScaffoldGeneratorTest {
                         "rightContentRender: () => <RightContent />")
                 .doesNotContain("<DesktopHeader", "layout: 'side'");
         assertThat(files.get("src/theme/ant-pro.less"))
+                .contains("container-type: inline-size", "@container (min-width: 660px)", "minmax(0, 18rem)")
                 .contains("kaiwu-content-frame", "padding: 32px 40px", "font-size: 20px", "font-weight: 600");
         assertThat(files.get("src/theme/antd.ts")).contains("controlHeight: 32", "borderRadiusLG: 8");
         assertThat(files.get("src/global.less")).contains("theme/ant-pro.less").doesNotContain("V5");

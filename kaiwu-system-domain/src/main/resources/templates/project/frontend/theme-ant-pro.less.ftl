@@ -208,15 +208,42 @@ body {
 .kaiwu-cell-time {
   color: rgba(0, 0, 0, 0.45);
 }
-.kaiwu-table-head,
-.kaiwu-project-cell {
-  display: flex;
+/* 先分配工具栏宽度，再由 rc-tabs 测量溢出，避免“更多”按钮反复改变搜索框位置。 */
+.ant-pro-table-list-toolbar-left:has(.kaiwu-table-head) {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: none;
+  container-type: inline-size;
+}
+.ant-pro-table-list-toolbar-left:has(.kaiwu-table-head) + .ant-pro-table-list-toolbar-right {
+  flex: 0 0 auto;
+}
+.ant-pro-table-list-toolbar-title:has(> .kaiwu-table-head) {
+  width: 100%;
+  min-width: 0;
+}
+.kaiwu-table-head {
+  display: grid;
   align-items: center;
   gap: 12px;
   min-width: 0;
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr);
+}
+.kaiwu-table-head > .kaiwu-table-search {
+  width: min(240px, 100%);
+}
+@container (min-width: 660px) {
+  .kaiwu-table-head {
+    /* 页签计数和粗体选中态变化时，保留搜索框的位置。 */
+    grid-template-columns: minmax(0, 18rem) minmax(0, 240px);
+  }
 }
 .kaiwu-project-cell {
+  display: flex;
+  align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 .kaiwu-table-tabs {
   min-width: 0;
@@ -288,14 +315,6 @@ body {
   }
 }
 @media (max-width: 767px) {
-  .kaiwu-table-head {
-    flex-wrap: wrap;
-    width: 100%;
-    gap: 12px;
-  }
-  .kaiwu-table-tabs {
-    flex-basis: 100%;
-  }
   .ant-pro-table-list-toolbar-title {
     width: 100%;
     min-width: 0;
