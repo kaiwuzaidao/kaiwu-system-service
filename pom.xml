@@ -13,7 +13,7 @@
 
     <groupId>com.kaiwuzaidao</groupId>
     <artifactId>kaiwu-system</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0</version>
     <packaging>pom</packaging>
     <name>Kaiwu System</name>
     <description>Kaiwu 平台控制面后端</description>
