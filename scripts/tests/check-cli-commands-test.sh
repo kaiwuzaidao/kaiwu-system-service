@@ -98,9 +98,11 @@ if [ "$escaped" != "$expected" ]; then
 fi
 
 # 同步计划的打印：新响应里条目带 category，授权类不计入未勾选时的待同步数，源环境已删除只提示不计数。
-plan_body='{"planHash":"h","changes":[{"resource":"DICT","key":"a.b","action":"CREATE","detail":"x","category":"NORMAL"},{"resource":"ROLE","key":"fin","action":"CREATE","detail":"y","category":"ACCESS"},{"resource":"CONFIG","key":"old","action":"REMOVED_AT_SOURCE","detail":"z","category":"DELETE"}],"missingPermissions":[]}'
+plan_body='{"planHash":"h","changes":[{"resource":"DICT","key":"a.b","action":"CREATE","detail":"x","category":"NORMAL"},{"resource":"ROLE","key":"fin","action":"CREATE","detail":"y","category":"ACCESS"},{"resource":"ROLE","key":"member","action":"REMOVED_AT_SOURCE","detail":"old","category":"DELETE"},{"resource":"CONFIG","key":"old","action":"REMOVED_AT_SOURCE","detail":"z","category":"DELETE"}],"missingPermissions":[]}'
 plan_output="$(bash -c ". <(sed -n '/^cli_json_string()/,/^}/p;/^cli_print_plan()/,/^}/p' \"$launcher\"); CLI_WITH_ACCESS=false; cli_print_plan '$plan_body'; echo COUNT=\$CLI_PLAN_COUNT")"
 printf '%s' "$plan_output" | grep -Fq 'COUNT=1'
 printf '%s' "$plan_output" | grep -Fq -- '- CONFIG'
+
+printf '%s' "$plan_output" | grep -Fq '本轮未导入角色；保留平台授权'
 
 echo "CLI 命令检查通过"

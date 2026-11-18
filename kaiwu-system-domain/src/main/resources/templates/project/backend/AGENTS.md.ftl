@@ -7,10 +7,11 @@
 - 聊天能力须按 `docs/AGENT_CAPABILITIES.md` 显式实现版本化 Handler，复用现有领域服务、
   BUTTON 权限和资源归属校验；不得扫描 Controller/OpenAPI 自动开放。只读响应限制字段与行数；
   写任务须经预览、确认及业务变更同事务的幂等账本。生成时所有 Agent 开关保持关闭。
+- 清单归属：存在 `kaiwu/frontend-manifests` 时，下面提到的菜单、字典、参数清单均维护在该文件指向的同级前端仓，project sync 的目标也为该前端仓。其他项目在后端维护清单。
 - 权限码必须在 `@RequirePermission`、前端 `PermissionButton`、`kaiwu/menus.yml` 三处同码，
   由 `bash scripts/check-permission-seed.sh` 校验（CI 门禁，**加接口后必须跑**）。
   新增受权限保护的接口时，`kaiwu/menus.yml` 必须同批补 BUTTON 节点，再用
-  `./kaiwu project sync <本仓路径>` 查看计划、加 `--apply` 写入平台——
+  `./kaiwu project sync <清单所属仓路径>` 查看计划、加 `--apply` 写入平台——
   只在运行库里手工建菜单不算数，全新安装时管理员无法把该权限授予任何角色。
 - 受管字典与参数配置写在 `kaiwu/dicts.yml`、`kaiwu/configs.yml`，同样用 `project sync` 同步（只新增、不删除，
   运行值由运维维护）。

@@ -1296,7 +1296,13 @@ cli_print_plan() {
     case "$action" in
       CREATE) mark="+"; [[ "$category" == "ACCESS" && "${CLI_WITH_ACCESS:-false}" != "true" ]] || count=$((count + 1)) ;;
       UPDATE|REENABLE) mark="~"; count=$((count + 1)) ;;
-      REMOVED_AT_SOURCE) mark="-" ;;
+      REMOVED_AT_SOURCE)
+        if [[ "$resource" == ROLE && "${CLI_WITH_ACCESS:-false}" != true ]]; then
+          mark="="
+          detail="本轮未导入角色；保留平台授权"
+        else
+          mark="-"
+        fi ;;
       *) mark="!" ;;
     esac
     printf '  %s %-10s %s  %s\n' "$mark" "$resource" "$key" "$detail"
@@ -1386,7 +1392,7 @@ cli_sync_manifests() {
     esac
   fi
   CLI_WITH_ACCESS="$with_access"
-  echo "项目 ${code} 的同步计划（+ 新增  ~ 更新  ! 平台多出，不会删除  - 源环境已删除，命令行不删除）："
+  echo "项目 ${code} 的同步计划（+ 新增  ~ 更新  ! 平台多出，不会删除  = 保留平台角色  - 源环境已删除，命令行不删除）："
   cli_print_plan "$CLI_BODY"
   missing="$(printf '%s' "$CLI_BODY" | grep -oE '"missingPermissions":\[[^]]*\]' | sed -E 's/.*\[(.*)\]/\1/; s/"//g')"
   if [[ -n "$missing" ]]; then
@@ -1404,7 +1410,12 @@ cli_sync_manifests() {
   plan_hash="$(cli_json_string "$CLI_BODY" planHash)"
   cli_http_json POST "/api/projects/${CLI_PROJECT_ID}/manifest/apply" "{\"files\":{${files}},\"gitCommit\":\"${commit}\",\"planHash\":\"${plan_hash}\",\"applyAccess\":${with_access}}"
   cli_require_ok "执行同步"
-  echo "已同步 ${CLI_PLAN_COUNT} 项。新增的菜单已授予项目管理员；其它角色的授权请用 --with-access 导入，或在平台「项目管理」中分配。"
+  echo "已同步 ${CLI_PLAN_COUNT} 项。新增的菜单已授予项目管理员。"
+  if [[ "$with_access" == "true" ]]; then
+    echo "已按本次清单应用角色授权。"
+  else
+    echo "其他角色的授权可用 --with-access 导入，或在平台「项目管理」中分配。"
+  fi
   echo "源环境已删除的条目不会由命令行删除，请在平台「配置移交」页签中逐项确认。"
 }
 

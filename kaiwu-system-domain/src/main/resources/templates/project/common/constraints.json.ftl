@@ -13,13 +13,13 @@
     {"id":"database.flyway-forward-only","level":"MUST","scope":"backend-migrations","rationale":"已发布迁移不可修改，结构变化只能前向追加。","enforcement":"Flyway and review","waivable":false,"reviewAfter":"2027-02-12"},
     {"id":"api.backward-compatibility","level":"MUST","scope":"backend-api","rationale":"已发布接口路径和字段不能被无意删除或改型。","enforcement":"ApiContractTest","waivable":false,"reviewAfter":"2027-02-12"},
     {"id":"dictionary.user-visible-values","level":"WARN","scope":"user-visible-configurable-enums","rationale":"需要翻译或运营配置的显示值使用受管字典。","enforcement":"check:dict","waivable":true,"reviewAfter":"2027-02-12"},
-    {"id":"tests.behavior-baseline","level":"WARN","scope":"changed-business-behavior","rationale":"测试保护领域行为、权限反例和接口契约，不机械追求类名覆盖。","enforcement":"test warning and review","waivable":true,"reviewAfter":"2026-11-12"},
+    {"id":"tests.behavior-baseline","level":"WARN","scope":"changed-business-behavior","rationale":"测试保护领域行为、权限反例和接口契约，不机械追求类名覆盖。","enforcement":"test warning and review","waivable":true,"reviewAfter":"2027-02-12"},
     {"id":"documentation.chinese-javadoc","level":"MUST","scope":"handwritten-java-types-constructors-and-methods","rationale":"中文 Javadoc 让领域职责、授权边界、状态机与副作用可审阅，不能用复述签名的模板句代替。","enforcement":"ChineseJavadocConventionTest（零预算）与评审","waivable":false,"reviewAfter":"2027-04-15"},
     {"id":"runtime.managed-threads","level":"MUST","scope":"java-production-threading","rationale":"线程与线程池必须具备可见的容量、命名、拒绝策略和生命周期。","enforcement":"ManagedThreadConventionTest","waivable":false,"reviewAfter":"2027-02-12"},
-    {"id":"java.high-signal-conventions","level":"WARN","scope":"java-production-code-and-business-sql","rationale":"选择可由 JDK 21 稳定执行的阿里规范高信号规则。","enforcement":"repository convention tests, Spotless and review","waivable":true,"reviewAfter":"2026-11-12"},
+    {"id":"java.high-signal-conventions","level":"WARN","scope":"java-production-code-and-business-sql","rationale":"选择可由 JDK 21 稳定执行的阿里规范高信号规则。","enforcement":"repository convention tests, Spotless and review","waivable":true,"reviewAfter":"2027-02-12"},
     {"id":"runtime.managed-config","level":"DEFAULT","scope":"runtime-changeable-settings","rationale":"平台配置是运行期可变参数的默认入口，领域不变量可以版本化。","enforcement":"generated default","waivable":true,"reviewAfter":"2027-02-12"},
     {"id":"scheduler.managed-control-plane","level":"DEFAULT","scope":"distributed-scheduled-jobs","rationale":"Starter 是分布式调度默认方案，本地方案需自行承担协调责任。","enforcement":"generated default","waivable":true,"reviewAfter":"2027-02-12"},
-    {"id":"i18n.enabled-locales","level":"WARN","scope":"declared-supported-locales","rationale":"只对项目明确启用的语言要求资源完整。","enforcement":"manifest and review","waivable":true,"reviewAfter":"2026-11-12"},
+    {"id":"i18n.enabled-locales","level":"WARN","scope":"declared-supported-locales","rationale":"只对项目明确启用的语言要求资源完整。","enforcement":"manifest and review","waivable":true,"reviewAfter":"2027-02-12"},
     {"id":"format.deterministic","level":"DEFAULT","scope":"java-typescript","rationale":"自动格式化减少不同人员和模型造成的排版漂移。","enforcement":"Spotless and Prettier","waivable":true,"reviewAfter":"2027-02-12"}
   ]
 }

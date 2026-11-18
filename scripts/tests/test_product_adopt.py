@@ -141,7 +141,8 @@ class ProductHandoff(unittest.TestCase):
                 self.assertEqual(result.returncode==0,success, result.stdout+result.stderr)
                 return result
             try:
-                run('project','adopt')
+                preview = run('project','adopt').stdout
+                self.assertIn('首次导入的项目角色', preview)
                 self.assertFalse(server.state)
                 # 项目已登记，首次清单事务失败：继续同步时仍需导入角色。
                 server.state['fail_sync'] = True

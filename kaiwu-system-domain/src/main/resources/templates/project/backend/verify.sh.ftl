@@ -21,7 +21,10 @@ echo "== 测试基线"
 bash scripts/check-test-baseline.sh --strict
 
 if [ "${1:-}" = "--static" ]; then
-  echo "静态检查通过（未运行 mvn verify）。"
+  echo "静态脚本执行完成；各项跳过情况见上方输出，未运行 mvn verify。"
+  if [[ -f kaiwu/frontend-manifests ]]; then
+    echo "纳管项目还需从配套前端执行 pnpm verify，并在真实服务复验业务场景。"
+  fi
   exit 0
 fi
 

@@ -52,6 +52,10 @@ cli_project_adopt() (
     for file in menus dicts configs roles jobs i18n data-scopes; do
       [[ ! -f "$front/kaiwu/$file.yml" ]] || echo "  kaiwu/$file.yml"
     done
+    if [[ -s "$front/kaiwu/roles.yml" ]]; then
+      echo "首次导入的项目角色、路由和权限（本地 roles.yml；平台预检在建项后执行）："
+      cat "$front/kaiwu/roles.yml"
+    fi
     echo "执行纳管请加 --apply。"; exit 0
   fi
   if [[ "${2:-}" == --apply ]]; then
@@ -108,4 +112,7 @@ cli_project_adopt() (
   CLI_TASK_NO="$task_no"
   [[ -d "$backend" ]] || cli_pull_repository BACKEND "$backend"
   echo "已纳管 ${code}，平台项目 ID ${pid}，配套后端 ${backend}。"
+  echo "前端快照：$(git -C "$front" rev-parse --verify HEAD 2>/dev/null || echo 尚无提交)，配套后端：$(git -C "$backend" rev-parse --verify HEAD 2>/dev/null || echo 尚无提交)。"
+  echo "研发交接：按前端 src/services 和 kaiwu/menus.yml 核对业务接口与权限，在配套后端完成持久化和服务端授权后，从前端运行 pnpm verify，再用真实服务复验产品场景。"
+
 )
