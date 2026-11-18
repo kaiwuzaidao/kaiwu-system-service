@@ -489,12 +489,13 @@ System 的 `PermissionResolver` 读取本地 system 项目权限事实。`@Requi
 
 ## 9. 代码生成控制面
 
-### 9.0 AI 边界
+### 9.0 AI 与确定性边界（ADR 0006 -> ADR 0038 · ADR 0048）
 
-ADR 0006 将项目工厂改为 AI 优先：模型根据业务描述和可选 DDL 生成受约束的
-`ProjectBlueprint`，其中可以包含新项目的 MySQL schema、模块说明、字段展示元数据和
-设计摘要。服务端校验蓝图后，Java、TypeScript、SQL 文件、权限、路由、Docker、CI 和
-协作契约仍全部由版本化模板确定性渲染。模型输出不是文件系统或命令执行权限。
+> 演进修订（`v0.2.0` / `v0.3.0`）：依照 [ADR 0038](adr/0038-deterministic-scaffold-and-ai-tool-development.md) 与 [ADR 0048](adr/0048-adopt-existing-frontend.md)，项目工厂已停用平台侧 `AI_PROJECT` / `DDL_SCAFFOLD` 及 GitLab 推送，改为**确定性工程骨架 + 用户本地 AI 工具迭代**：
+> - `BASIC_SCAFFOLD`（`./kaiwu project new`）：生成空模块双仓脚手架；
+> - `ADOPT_FRONTEND`（`./kaiwu project adopt`）：纳管来自 `kaiwu-web-starter` 的已有产品前端，导入清单与首次角色并仅生成配套后端；
+> - 后续菜单、字典、参数、数据范围、定时任务与项目多语言清单通过 `./kaiwu project sync`（ADR 0036）与跨环境配置移交（ADR 0042）可控对齐。
+> 以下 9.1–9.3 保留原核心元数据与任务隔离约束作为架构历史基线。
 
 ### 9.1 单一生成元数据
 
