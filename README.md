@@ -51,48 +51,25 @@ export KAIWU_REPOSITORY_REF='v0.3.0'       # 可选；Release 默认会自动选
 kaiwu-system-boot -> kaiwu-system-domain -> kaiwu-system-api
 ```
 
-本仓库不承载生成业务项目的业务模块或业务表。
+本仓库不承载生成业务项目的业务模块或业务表，只提供统一的平台控制面与确定性交付底座。
 
-当前已完成登录鉴权最小纵切：
+## 核心能力（v0.3.0）
 
-- 用户名密码登录、Access JWT、Refresh Token、登出撤销。
-- Redis 在线会话与 MySQL 会话审计事实。
-- 从 v0.1.0 升级见 [升级说明](docs/UPGRADING.md)。
-- 依赖 `com.kaiwuzaidao:kaiwu-system-starter`，依赖版本见根 pom 的 `kaiwu-system-starter.version`。
-- `/api/platform/probe` 使用 `@RequirePermission("system:platform:read")`。
-- 用户分页、创建、编辑、启停和管理员重置密码；支持 Excel 导入导出、批量启停和多部门归属。
-  组织页通过受权限保护的 `GET /api/org/user-departments?userIds=...` 批量读取最多 100 位
-  用户的主部门与兼任部门，避免逐用户请求。
-- `system` 是不可停用、不可归档的内置项目；Kaiwu 自身成员、系统角色、平台菜单与
-  登录权限全部在该项目的权限中心管理。
-- system 成员、角色授权或平台菜单发生变化时，撤销受影响用户的 MySQL/Redis 在线会话。
-- 内置 `project-admin` 始终拥有 system 项目全部节点且不可编辑、停用或重授权，
-  避免切断平台管理入口。
-- 项目登记、编辑、启停和归档；项目创建人自动成为内置项目管理员。
-- 每个项目绑定自己的包名、GitLab Project ID、仓库地址、默认分支和业务后台入口；
-  不存在共享仓库或 `SHARED` 创建模式。
-- 项目成员支持多项目角色；system 项目角色控制平台，其余项目角色只控制所属业务项目。
-- 项目菜单支持树维护和按项目角色授权；当前用户接口只返回本人可访问的项目、菜单和权限。
-- 所有运行态菜单与角色授权都进入 `sys_project_*`：system 项目承载 Kaiwu 平台菜单，
-  业务项目承载各自菜单，全部以 `project_id` 为边界。legacy `sys_role/sys_menu`
-  仅保留为兼容种子，不再是登录鉴权事实源。
-- 项目管理接口属于平台控制面；业务服务的 PROJECT Route 仍按 ADR 0003 失败关闭。
-- 全局/项目级应用配置，项目值覆盖全局值；敏感配置 AES-GCM 加密，管理端只返回掩码，
-  业务有效配置接口永不返回敏感项。
-- 全局/项目级字典类型和字典项，支持项目继承全局并按字典值覆盖，未知值由前端原样显示。
-- 根据项目编码、名称和基础包名等配置，用确定性模板生成前后端基础脚手架；产物包含
-  工程配置、平台清单、`AGENTS.md` 和 `CLAUDE.md`，可下载 ZIP 后在独立业务仓继续开发。
-- 代码生成会把三端同码权限幂等登记到所选项目的菜单树，并只自动授予该项目内置
-  `project-admin`；重复生成不会创建重复权限节点。
-- 生成任务按创建人隔离；项目绑定独立 GitLab 仓库后可创建 feature branch 和 MR，
-  GitLab 环境变量缺失时失败关闭。
-- 登录成功/失败/登出日志与用户写操作审计；被动下线（管理员强制、改密码踢其它会话）
-  只记操作审计，不写登录日志。
-- 安全运营中心提供登录/操作日志、在线会话和强制下线；顶栏搜索按权限过滤项目、交付和用户。
-- 项目开通向导串联项目、成员角色与一次性生成；交付中心汇总双制品和双仓推送状态。
+| 能力域 | 说明与关键特性 | 相关文档 |
+| --- | --- | --- |
+| **统一身份与项目级 RBAC** | 用户名密码登录、RS256 Access JWT + HttpOnly Refresh 轮换、Redis 在线会话与安全运营强制下线；内置不可停用的 `system` 项目遵循同一套 `sys_project_*` 权限事实源，业务项目支持项目内自助成员与角色授权（`access-admin`） | [架构设计](docs/ARCHITECTURE.md) · [项目接入](docs/PROJECT_ACCESS.md) |
+| **按角色 × 部门的行级数据范围** | 支持 `ALL`、`DEPT_AND_CHILD`、`DEPT`、`SELF`、`CUSTOM_DEPT` 与多角色并集归约；System 计算快照经 Gateway 写入签名 Context 的 `ds` 字段，由业务端 `kaiwu-data-scope` 在 SQL 层自动过滤，请求链路零回调 | [数据范围契约](docs/DATA_SCOPE.md) · [ADR 0044](docs/adr/0044-project-data-scope.md) |
+| **产品前端纳管与确定性项目工厂** | 支持**产品先出前端**（`project adopt` 纳管 `kaiwu-web-starter` 前端、导入清单与初始角色并生成配套后端，`ADOPT_FRONTEND`）与**基础双仓脚手架**（`BASIC_SCAFFOLD`）两种一次性交付，产出自带 `AGENTS.md` 与校验门禁，之后平台永久退出写入权 | [项目工厂](docs/PROJECT_FACTORY.md) · [ADR 0048](docs/adr/0048-adopt-existing-frontend.md) |
+| **声明式清单同步与跨环境配置移交** | 业务仓维护 `kaiwu/*.yml` 并经 `./kaiwu project sync` 预览差异后幂等同步；支持从测试到生产导出 6 类 YAML 全量快照（字典、参数、菜单、含 `dataScopes` 的角色、定时任务、项目多语言），按业务键对齐、三方基线比对 + 409 并发守卫，**角色授权按组确认、删除逐项勾选、新建定时任务默认停用** | [ADR 0036 清单同步](docs/adr/0036-platform-manifest-sync.md) · [ADR 0042 配置移交](docs/adr/0042-project-config-handover.md) |
+| **受管字典、参数与项目级国际化** | 全局作底、项目覆盖；敏感参数 AES-256-GCM 加密且不下发给业务接口；全面采用引用式多语言并按 `scope_id` 隔离项目与平台译文，消除内联 JSON“双真相源”漂移且项目间互不泄露 | [ADR 0015](docs/adr/0015-referenced-i18n-is-the-only-multilingual-path.md) · [ADR 0037](docs/adr/0037-project-scoped-i18n-resources.md) |
+| **对象存储 (STS) 与统一待办/调度** | 长期 AK/SK 加密留平台，按项目 `{bucket}/{projectCode}/*` 前缀签发 STS 临时凭证；`TodoClient` 按 `bizKey` 幂等表达或签/会签/逾期置顶；租约抢占式分布式调度（含多副本 `fencingToken` 协作栅栏） | [ADR 0039 对象存储](docs/adr/0039-project-object-storage-via-sts.md) · [统一待办](docs/UNIFIED_TODO.md) |
+| **受控跨项目 AI 助手** | `PLAN`（任务识别）与 `ANSWER`（回答）多模型路由、按个人隔离的历史会话与显式记忆；业务项目显式注册版本化读写能力，写操作先只读预览冻结版本、用户确认后通过事务账本幂等执行 | [ADR 0043](docs/adr/0043-agent-multi-model-routing.md) · [ADR 0030](docs/adr/0030-agent-cross-project-capabilities.md) |
+| **MySQL 与国产达梦 DM8 双库基线** | 控制面首次安装可选 MySQL 8 或达梦 DM8，配备独立 `kaiwu-dm-migrator` 容器与迁移前实例参数校验 | [数据库配置](docs/DATABASES.md) · [ADR 0048](docs/adr/0048-platform-mysql-and-dameng.md) |
+| **CLI 设备授权与安全运营** | `./kaiwu login` 免接触用户密码（支持 `/device` 网页确认与受限 `CliSessionScope`）、登录/操作审计、在线会话强踢、顶栏跨模块授权搜索 | [ADR 0035](docs/adr/0035-cli-device-authorization.md) |
 
-Starter 尚未发布到公共 Maven 仓库。只有不使用 Docker、准备直接构建 Java 源码时，才需要先把
-它安装到本地 Maven 仓库：
+## 本地开发与源码构建
+
+`com.kaiwuzaidao:kaiwu-system-starter`、`kaiwu-data-scope` 与 `kaiwu-excel` 的 `0.2.0` 正式制品已发布至 Maven Central。只有在本机修改了 Starter 源码并希望离线联调时，才需要先将本地 Starter 安装到本地 Maven 仓库：
 
 ```bash
 ./scripts/kaiwu.sh init
@@ -202,33 +179,4 @@ export KAIWU_NACOS_PASSWORD='...'
 
 本项目基于 [Apache License 2.0](LICENSE) 开源。
 
-### 内部候选成员查询（C3开发分支）
-
-后台worker可用`member:read`服务凭据显式调用内部`members/by-role`及`members/eligibility`。
-项目归属、有效期、凭据状态和scope由System数据库验证；角色展开最多200人，超限整体422，绝不返回截断候选。
-查询仅用于候选解析及投影，用户办理授权仍使用Gateway Context和资源本地规则。
-新凭据签发开关仍默认关闭，尚未发布或部署。配置、接口和回滚约束见
-[本步骤交接](docs/verification/workflow-platform-step2-c3-20261103/HANDOFF.md)。
-
-### 受管待办协议（C2开发分支）
-
-内部`PUT /api/internal/managed-todos`及`GET /api/internal/managed-todos/receipt`使用C5的`todo:managed`凭据，
-按项目、凭据服务编码、业务键和单个收件人隔离。相同版本同内容返回DUPLICATE，不续期；同版本不同内容冲突，
-旧版本不应用，终态不能重开。工作台现有待办查询合并旧记录和受管投影，JSON字段保持兼容。
-
-`kaiwu.todo.managed-protocol-enabled`默认false，`multi-enabled`仍默认false。
-V121回填共享锁、占用域和配额前，必须停止所有旧/新投递、清理及worker；全部副本升级并对账后才能另行授权开启。
-受管清理仅按`lastSeenAt`，保留版本、摘要、dueAt及墓碑；刷新和清理共用业务键/配额锁。
-深链接只进入当前项目`/workspace/{id}`，子路由由宿主读取本项目`workspace.deep-links`配置再校验。
-本分支没有发布或部署，具体证据和回滚约束见[步骤3交接](docs/verification/workflow-platform-step3-c2-20261103/HANDOFF.md)。
-
-### 多服务登记与显式路由（C1开发分支）
-
-项目后端服务登记在`sys_project_backend_service`；`default`与原`sys_project.service_url`同事务同步。
-`kaiwu.project-backend-services.multi-enabled`默认false：关闭时沿用旧字段导出默认片段，开启后先核对default一致性，
-再允许新增/启停其他服务。管理入口同时要求平台项目权限和目标项目有效管理员身份，登记不会自动发布Gateway路由。
-
-默认服务保留`/{project}-api/**`和`kaiwu-{project}-service`，其他服务使用`/{project}-svc/{service}/**`和
-`kaiwu-{project}.{service}-service`。查看`/api/projects/{id}/gateway-routes`取得分服务片段，仍需审核后发布到受管目录。
-停用只影响后续片段，已发布路由必须另行撤销。C5凭据开关与C2受管待办开关仍独立、默认关闭。
-具体门禁、真实隔离链路及回滚要求见[步骤4交接](docs/verification/workflow-platform-step4-c1-20261103/HANDOFF.md)。
+> 说明：仓库内亦包含用于后续多服务登记、受管待办协议与候选成员查询的实验性内部接口与开关（默认全部 `false` 关闭），未正式启用前不影响上述主链路；详细契约与验收约束见 `docs/verification/` 下的专题记录。
